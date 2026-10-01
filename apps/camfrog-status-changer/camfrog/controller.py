@@ -5,6 +5,7 @@ from .detector import find_processes
 from .background_win32 import set_status_background
 from .foreground_fallback import apply_status_foreground
 from .native_profile import identify_profile
+from .window_locator import locate_camfrog_hwnd
 
 log=logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class CamfrogController:
         self.config=config
         self._lock=threading.Lock()
         self._last=0.0
+        self._cached_hwnd=0
 
     def ensure_running(self):
         if find_processes(): return ChangeResult(True,"Camfrog is running",stage="process")
@@ -35,24 +37,18 @@ class CamfrogController:
         return ChangeResult(False,"Camfrog did not start within timeout",stage="process")
 
     def find_hwnd(self):
-        if os.name!="nt": raise RuntimeError("Windows only")
-        import win32gui
-        pids={p.pid for p in find_processes()}
-        c=[]
-        def cb(h,_):
-            try:
-                _tid,pid=win32gui.GetWindowThreadProcessId(h)
-                if pid in pids:
-                    title=win32gui.GetWindowText(h) or ""
-                    l,t,r,b=win32gui.GetWindowRect(h); area=max(0,r-l)*max(0,b-t)
-                    score=(300 if "camfrog" in title.casefold() else 0)+(80 if win32gui.IsWindowVisible(h) else 0)+(60 if area>60000 else 0)
-                    c.append((score,area,h))
-            except Exception: pass
-            return True
-        win32gui.EnumWindows(cb,None)
-        if not c: raise RuntimeError("Camfrog main window not found")
-        c.sort(reverse=True)
-        return int(c[0][2])
+        if os.name!="nt":
+            raise RuntimeError("Windows only")
+        pids={int(p.pid) for p in find_processes()}
+        if not pids:
+            raise RuntimeError("Camfrog process is not running")
+        try:
+            match=locate_camfrog_hwnd(pids,self._cached_hwnd)
+        except Exception:
+            self._cached_hwnd=0
+            raise
+        self._cached_hwnd=int(match.hwnd)
+        return self._cached_hwnd
 
     def native_profile_info(self):
         exe=self.config.get("camfrog",{}).get("executable","")
@@ -62,7 +58,7 @@ class CamfrogController:
         except Exception as exc:
             return {"matched":False,"sha256":"","name":"","error":str(exc)}
 
-    def set_status(self,value):
+    def set_status(self,value,*,respect_rate_limit=True):
         value=str(value).replace("\x00","")
         if not value.strip(): return ChangeResult(False,"Status cannot be empty",stage="validate")
         max_len=int(self.config.get("advanced",{}).get("max_status_length",160))
@@ -70,9 +66,11 @@ class CamfrogController:
         if not self._lock.acquire(blocking=False):return ChangeResult(False,"Another status change is already in progress",stage="lock")
 
         try:
-            minimum=max(1,int(self.config.get("advanced",{}).get("minimum_interval_seconds",5)))
-            if self._last and time.monotonic()-self._last<minimum:
-                return ChangeResult(False,"Rate limited",stage="rate-limit")
+            if respect_rate_limit:
+                minimum=max(1,int(self.config.get("advanced",{}).get("minimum_interval_seconds",5)))
+                if self._last and time.monotonic()-self._last<minimum:
+                    remaining=max(1,int(minimum-(time.monotonic()-self._last)+0.999))
+                    return ChangeResult(False,f"Rate limited: retry in {remaining}s",stage="rate-limit")
 
             running=self.ensure_running()
             if not running.ok:return running
@@ -92,7 +90,8 @@ class CamfrogController:
                 )
                 background_message=r.message
                 if r.ok and r.verified:
-                    self._last=time.monotonic()
+                    if respect_rate_limit:
+                        self._last=time.monotonic()
                     return ChangeResult(
                         True,
                         r.message,
@@ -110,7 +109,8 @@ class CamfrogController:
                     value,
                 )
                 if fg.ok:
-                    self._last=time.monotonic()
+                    if respect_rate_limit:
+                        self._last=time.monotonic()
                     return ChangeResult(
                         True,
                         fg.message + "; server publication still requires independent verification",
