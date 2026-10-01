@@ -98,8 +98,25 @@ def apply_status_foreground(parent_hwnd: int, relative_x: float, relative_y: flo
         pyperclip.copy(text)
         send_keys("^a")
         send_keys("^v")
-        send_keys("{ENTER}")
-        time.sleep(0.25)
+        time.sleep(0.08)
+
+        # Commit with a real keyboard path on the exact Camfrog edit whenever
+        # possible. This avoids treating a successful text write as a commit.
+        enter_sent = False
+        if edit is not None:
+            try:
+                edit.set_focus()
+                edit.type_keys("{ENTER}", set_foreground=True, pause=0.05)
+                enter_sent = True
+                log.info("Foreground Enter committed through exact CEdit4ComboInnerTS")
+            except Exception:
+                log.debug("Exact edit Enter failed; falling back to SendInput-style Enter", exc_info=True)
+
+        if not enter_sent:
+            send_keys("{ENTER}", pause=0.05)
+            log.info("Foreground Enter committed through pywinauto keyboard")
+
+        time.sleep(0.30)
 
         if was_minimized:
             win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
