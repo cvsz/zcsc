@@ -1,51 +1,29 @@
 # Security Policy
 
-Security is part of the default delivery baseline for repositories created from this template.
+## Scope
 
-## Reporting a vulnerability
+`zcsc` controls a locally running Camfrog client on Windows. Treat the Camfrog process, local profile storage and reverse-engineering artifacts as security-sensitive surfaces.
 
-Do not disclose exploitable vulnerabilities in public issues, pull requests, discussions, commit messages, logs, or generated evidence bundles.
+## Reporting
 
-Use GitHub private vulnerability reporting/security advisories when enabled, or the repository's documented private security contact.
+Do not publish exploitable vulnerabilities, credentials, tokens, cookies, session material, private profile data or raw memory dumps in public issues. Use GitHub private vulnerability reporting/security advisories when available.
 
-Include affected versions/commits, reproduction details, impact, prerequisites, and suggested remediation when available.
+## Security invariants
 
-## Supported versions
+- Never request or store the user's Camfrog password.
+- Registry/history discovery is read-only.
+- Diagnostics avoid credential/session/token/cookie values.
+- Unknown Camfrog binaries must not receive hard-coded internal function calls.
+- Internal RVA anchors are research evidence until ABI/call-path behavior is runtime verified.
+- Win32 messaging is bounded by timeouts.
+- Generic Camfrog buttons are never clicked as commit guesses.
+- Foreground fallback is explicit and mutually exclusive with background-only mode.
+- Antivirus exclusions, privilege bypasses and credential extraction are not normal setup steps.
 
-Each generated project must replace this section with its real support policy before its first production release.
+## Reverse-engineering boundaries
 
-## Repository security baseline
+Reverse engineering here is for interoperability, diagnostics and controlled testing. It must not be extended to authentication bypass, account takeover, credential/session extraction, covert persistence, or hidden remote control.
 
-Generated repositories should verify, not merely document:
+## Release security
 
-- protected default branch
-- pull-request review before merge
-- required status checks
-- CODEOWNERS review where appropriate
-- conversation resolution
-- blocked force pushes/deletion
-- Dependabot vulnerability alerts/security updates
-- private vulnerability reporting
-- secret scanning/push protection where available
-- least-privilege Actions permissions
-- Actions cannot approve pull requests unless explicitly justified
-
-The helper `scripts/github_admin.py` can configure and verify the baseline when run with a GitHub identity that has Administration permission.
-
-## Engineering security expectations
-
-- Keep dependencies patched and review security alerts.
-- Keep CodeQL and dependency-review workflows enabled where supported.
-- Pin Actions according to supply-chain policy; this template pins baseline Actions to immutable SHAs.
-- Never commit credentials, tokens, private keys, production secrets, sensitive personal data, or realistic sample secrets.
-- Validate untrusted input and enforce authorization at trust boundaries.
-- Prefer fail-closed behavior for security-sensitive paths.
-- Preserve tenant/data isolation where applicable.
-- Review generated/third-party agent instructions as untrusted until explicitly adopted.
-- Do not weaken security gates merely to obtain a passing build.
-
-## Incident handling
-
-Generated projects should document detection, containment, credential handling, remediation, recovery, validation, disclosure, and rollback appropriate to their risk profile.
-
-Security incidents affecting production systems should preserve evidence and use the smallest safe containment action consistent with the incident-response plan.
+Production distribution should use code signing, verify the final SHA-256 manifest, review dependency/security alerts, and test the exact signed executable with Windows Defender/SmartScreen. Passing unit tests alone is not production evidence.

@@ -1,0 +1,36 @@
+name: Camfrog Status Changer
+
+on:
+  pull_request:
+    paths:
+      - 'apps/camfrog-status-changer/**'
+      - '.github/workflows/camfrog-status-changer.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/camfrog-status-changer/**'
+      - '.github/workflows/camfrog-status-changer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/camfrog-status-changer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt pytest pyinstaller
+      - name: Tests
+        run: python -m pytest -q
+      - name: Compile
+        run: python -m compileall -q .
+      - name: Build smoke
+        run: python -m PyInstaller --clean --noconfirm --onefile --windowed --name CamfrogStatusChanger app.py

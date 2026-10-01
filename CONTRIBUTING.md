@@ -1,46 +1,15 @@
 # Contributing
 
-Thanks for contributing to projects created from this template.
+Changes to `zcsc` should be small, reviewable and evidence-backed.
 
-## Development workflow
+Before opening a PR, run the application tests/self-test from `apps/camfrog-status-changer`.
 
-1. Fork or create a feature branch from `main`.
-2. Keep changes focused and reviewable.
-3. Add or update tests for behavior changes.
-4. Run the repository's formatting, linting, test, build, and security checks.
-5. Update documentation and `CHANGELOG.md` when relevant.
-6. Open a pull request and complete the checklist.
+For Windows-native/controller changes, record the Camfrog executable hash/version and separate:
+- source/test result
+- local UI/control read-back
+- dynamic trace evidence
+- independent server-visible verification
 
-## Branch naming
+Never attach credentials, session/token/cookie values, private memory dumps or unsanitized profile/registry exports.
 
-Use concise prefixes such as `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`, or `security/`.
-
-## Commit guidance
-
-Prefer Conventional Commits, for example:
-
-- `feat: add project scaffolding`
-- `fix: handle empty configuration`
-- `security: harden token validation`
-- `docs: update deployment guide`
-
-## Pull requests
-
-Pull requests should explain the problem, implementation, testing, security impact, compatibility impact, and rollback plan where applicable. Do not bypass quality or security checks to make a pull request green.
-
-## Security
-
-Do not report exploitable vulnerabilities in public issues. Follow `SECURITY.md`.
-
-
-## Repository validation
-
-Before opening or updating a pull request, run the repository validator when your change affects template structure or documentation:
-
-```bash
-make validate-template
-```
-
-Do not merge from an older green commit after the PR head changes. Required checks must pass for the current exact head.
-
-Repository-administration changes require an authenticated admin identity and read-back verification with `scripts/github_admin.py --verify`; configuration intent alone is not evidence.
+Bug fixes should add regression coverage when practical. Do not weaken safe-commit guards or reintroduce generic button clicking merely to make status changes appear successful.

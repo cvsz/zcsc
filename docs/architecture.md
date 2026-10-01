@@ -1,55 +1,33 @@
 # Architecture
 
-## Purpose
+```text
+GUI (CustomTkinter)
+  -> Controller
+     -> Camfrog detector / native profile
+     -> UIA direct edit/value path
+     -> bounded Win32 background path
+     -> explicit foreground fallback
+  -> Rotation worker
+  -> Config/logging/startup/tray
+  -> Registry history reader (read-only)
+```
 
-`ztemplate` is a language-agnostic repository foundation rather than an application runtime.
+## Status evidence levels
 
-Its architecture is intentionally layered so generated projects can replace application-specific pieces without weakening repository governance.
+1. Editor staged.
+2. Local control committed/read-back.
+3. Client publish path observed by runtime tracing.
+4. Independent session/account observes the server-visible status.
 
-## Layers
+Only level 4 is sufficient for an end-to-end success claim.
 
-### Repository governance
+## Known native profile
 
-Root policy documents define ownership, contribution, security, evidence, and release expectations:
+The analyzed Camfrog x64 build is fingerprinted in `camfrog/native_profile.py`. Known classes include `CComboBoxTS`, `CEdit4ComboInnerTS`, and `CButtonStatusTS`. Diagnostic RVAs are stored but not directly invoked.
 
-- `AGENTS.md`
-- `ZEAZ-INTRODUCTION.md`
-- `GOVERNANCE.md`
-- `SECURITY.md`
-- `CONTRIBUTING.md`
+## RE summary
 
-### GitHub control plane
-
-`.github/` provides CI/security/community baselines.
-
-`scripts/github_admin.py` handles repository settings that cannot be enforced by committed files alone and verifies effective provider state after mutation.
-
-### Validation
-
-`scripts/validate_repo.py` checks required template structure and local Markdown links.
-
-`tests/` validates bootstrap behavior.
-
-Application-specific lint/test/build/security validation must be added by generated projects.
-
-### Project initialization
-
-`scripts/bootstrap.py` changes project identity/ownership routing only. It does not create application architecture or deploy infrastructure.
-
-### AI/agent execution
-
-`docs/ai/`, `skills/`, `components.d/`, and `plugins.d/` provide reusable agent execution guidance and discovery without making application-runtime assumptions.
-
-### Application placeholders
-
-The root Dockerfile and application Makefile targets are intentionally non-production placeholders. Generated projects replace them with stack-specific implementations.
-
-## Existing-repository adoption
-
-The architecture is composable. Established repositories should use [repository rollout](repository-rollout.md) and port only compatible missing layers rather than copying the tree wholesale.
-
-## Production boundary
-
-Repository-foundation readiness and application production readiness are separate claims.
-
-The template can verify repository controls, documentation structure, and baseline automation. A generated application must independently verify runtime architecture, deployment, data, recovery, observability, capacity, security, and incident-response gates that apply to it.
+- `CSPacket020401.text_status`: protobuf field #2/string.
+- Known parser tags: `0x08`, `0x12`, `0x18`.
+- No verified custom-status color/marquee field in packet 020401.
+- Text Over Video is separate and exposes `TOV_*` text/background color, font, alignment and transparency settings.
