@@ -1,0 +1,31 @@
+{
+  "feature": "Text Over Video",
+  "settings": {
+    "enabled": "TOV_Enable",
+    "text": "TOV_Text",
+    "font_name": "TOV_FontName",
+    "font_size": "TOV_FontSize",
+    "bold": "TOV_Bold",
+    "italic": "TOV_Italic",
+    "background_color": "TOV_BackgroundColor",
+    "text_color": "TOV_TextColor",
+    "horizontal_alignment": "TOV_HorizontalAlignment",
+    "vertical_alignment": "TOV_VerticalAlignment",
+    "transparency": "TOV_Transparent"
+  },
+  "controls": {
+    "enabled": "tov_enable_button",
+    "text": "tov_text_edit",
+    "background_color": "tov_background_color_combo",
+    "text_color": "tov_text_color_combo",
+    "horizontal_alignment": "tov_horz_alignment_combo",
+    "vertical_alignment": "tov_vert_alignment_combo",
+    "transparency": "tov_transparent_slider",
+    "font": "tov_font_button"
+  },
+  "runtime_anchors": [
+    "SetTextOverVideo",
+    "Enabling capture TOV",
+    "Disabling capture TOV"
+  ]
+}
