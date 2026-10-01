@@ -1,20 +1,46 @@
 # Governance
 
-`cvsz/zcsc` is maintained as a Windows automation/interoperability project with security-sensitive reverse-engineering research.
+## Scope
 
-## Change policy
+This document defines the default governance model for projects created from this template. Generated projects must replace generic ownership and decision guidance with their real maintainers, escalation paths, and operating model.
 
-- Application and RE changes should flow through pull requests.
-- Production-readiness claims require evidence, not documentation alone.
-- Camfrog-version-specific integrations must be fingerprint-gated and fail closed.
-- Credential/session extraction and authentication bypass are outside project scope.
-- Security controls must not be disabled merely to obtain a green build.
+## Roles
 
-## Evidence labels
+- **Maintainers**: review changes, protect quality/security, manage releases, and maintain repository controls.
+- **Contributors**: propose focused changes through issues and pull requests and follow `CONTRIBUTING.md`.
+- **Security contacts**: receive vulnerability reports through the private path defined in `SECURITY.md`.
+- **Repository administrators**: maintain branch/ruleset, Actions, security-feature, and emergency-access settings.
 
-- **VERIFIED:** directly demonstrated by test/tool/runtime evidence.
-- **PARTIAL:** one layer is verified but end-to-end behavior is not.
-- **PROPOSED:** design/planned change only.
-- **BLOCKED:** external dependency/environment prevents completion.
+## Change control
 
-The current release candidate is not production-ready until server-visible status publication and Windows release gates are verified.
+Normal changes flow through pull requests with required checks and review. Repository administration controls should be verified with:
+
+```bash
+python3 scripts/github_admin.py --repo OWNER/REPO --verify
+```
+
+A generated repository should not rely on documentation alone to prove that its branch protections or security settings are effective.
+
+## Decisions
+
+Prefer documented, reviewable decisions. Significant architecture, security, compatibility, data, or operational decisions should use an ADR under `docs/adr/`.
+
+Changes affecting public contracts, security boundaries, authentication/authorization, release policy, production infrastructure, or recovery procedures require maintainer review and evidence appropriate to the risk.
+
+## Emergency changes
+
+Emergency changes should use the smallest reversible scope, record the reason and operator, preserve security controls where possible, and be reviewed afterward. Do not normalize routine bypass of required checks or protected-branch controls.
+
+## Conflicts of interest
+
+Reviewers should disclose material conflicts and avoid sole approval when independent review is reasonably available.
+
+## Evidence and readiness
+
+Governance approval, accepted risk, and production readiness are separate concepts. Accepted risk never converts an unverified readiness gate into `VERIFIED`.
+
+Use the canonical evidence states in `ZEAZ-INTRODUCTION.md`.
+
+## Amendments
+
+Governance changes are made by pull request and should explain reason, impact, migration expectations, validation, and rollback.

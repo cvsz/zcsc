@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-import copy, json, os, shutil, time
+import copy
+import json
+import os
+import shutil
+import time
 from pathlib import Path
 
 DEFAULT_CONFIG = {
@@ -11,13 +15,14 @@ DEFAULT_CONFIG = {
         "presets": ["Sea THAIFIGHT", "ZEAZDEV COMPANY LIMITED", "Busy", "Available"],
         "editor_messages": ["Sea THAIFIGHT", "ZEAZDEV COMPANY LIMITED", "Busy", "Available"],
         "rotation": {"enabled": False, "interval_seconds": 600, "mode": "sequential"},
-        "styles": {"random_color": False, "marquee": False, "marquee_width": 28, "palette": ["🔴","🟠","🟡","🟢","🔵","🟣","🟤","⚪"]},
+        "styles": {"random_color": False, "marquee": False, "marquee_width": 28, "palette": ["🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "🟤", "⚪"]},
     },
     "startup": {"windows_startup": False, "start_minimized": False, "system_tray": True},
     "registry": {"import_presets_on_start": False},
     "ui": {"language": "EN"},
     "advanced": {"minimum_interval_seconds": 5, "fallback_enabled": False, "background_only": True, "max_status_length": 160},
 }
+
 
 class ConfigStore:
     def __init__(self):
@@ -51,11 +56,10 @@ class ConfigStore:
         data = self.validate(self._merge(DEFAULT_CONFIG, data))
         self.dir.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
-        with tmp.open("w", encoding="utf-8", newline="
-") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            f.flush()
-            os.fsync(f.fileno())
+        with tmp.open("w", encoding="utf-8", newline="\n") as handle:
+            json.dump(data, handle, indent=2, ensure_ascii=False)
+            handle.flush()
+            os.fsync(handle.fileno())
         os.replace(tmp, self.path)
 
     @staticmethod
@@ -63,34 +67,42 @@ class ConfigStore:
         adv = data.setdefault("advanced", {})
         adv["minimum_interval_seconds"] = max(5, int(adv.get("minimum_interval_seconds", 5)))
         adv["max_status_length"] = min(512, max(1, int(adv.get("max_status_length", 160))))
-        rot = data.setdefault("status", {}).setdefault("rotation", {})
+        status = data.setdefault("status", {})
+        rot = status.setdefault("rotation", {})
         rot["interval_seconds"] = max(adv["minimum_interval_seconds"], int(rot.get("interval_seconds", 600)))
-        rot["mode"] = rot.get("mode") if rot.get("mode") in {"sequential","random"} else "sequential"
-        msgs = data["status"].get("editor_messages", [])
+        rot["mode"] = rot.get("mode") if rot.get("mode") in {"sequential", "random"} else "sequential"
+        msgs = status.get("editor_messages", [])
         if not isinstance(msgs, list):
             msgs = [str(msgs)]
-        msgs = [str(x).replace("\x00","").strip()[:adv["max_status_length"]] for x in msgs[:4]]
-        data["status"]["editor_messages"] = msgs + [""] * (4-len(msgs))
-        presets=[]; seen=set()
-        for x in data["status"].get("presets", []):
-            v=str(x).replace("\x00","").strip()[:adv["max_status_length"]]
-            if v and v.casefold() not in seen:
-                presets.append(v); seen.add(v.casefold())
-        data["status"]["presets"]=presets
-        st=data["status"].setdefault("styles",{})
-        st["random_color"]=bool(st.get("random_color",False))
-        st["marquee"]=bool(st.get("marquee",False))
-        st["marquee_width"]=min(80,max(4,int(st.get("marquee_width",28))))
-        ui=data.setdefault("ui",{})
-        ui["language"]="TH" if str(ui.get("language","EN")).upper()=="TH" else "EN"
-        bg=bool(data.setdefault("advanced",{}).get("background_only",True))
-        if bg:
-            data["advanced"]["fallback_enabled"]=False
+        msgs = [str(value).replace("\x00", "").strip()[: adv["max_status_length"]] for value in msgs[:4]]
+        status["editor_messages"] = msgs + [""] * (4 - len(msgs))
+        presets = []
+        seen = set()
+        for item in status.get("presets", []):
+            value = str(item).replace("\x00", "").strip()[: adv["max_status_length"]]
+            key = value.casefold()
+            if value and key not in seen:
+                presets.append(value)
+                seen.add(key)
+        status["presets"] = presets
+        styles = status.setdefault("styles", {})
+        styles["random_color"] = bool(styles.get("random_color", False))
+        styles["marquee"] = bool(styles.get("marquee", False))
+        styles["marquee_width"] = min(80, max(4, int(styles.get("marquee_width", 28))))
+        ui = data.setdefault("ui", {})
+        ui["language"] = "TH" if str(ui.get("language", "EN")).upper() == "TH" else "EN"
+        background_only = bool(adv.get("background_only", True))
+        adv["background_only"] = background_only
+        if background_only:
+            adv["fallback_enabled"] = False
         return data
 
     @staticmethod
     def _merge(base, override):
-        out=copy.deepcopy(base)
-        for k,v in override.items():
-            out[k]=ConfigStore._merge(out[k],v) if isinstance(v,dict) and isinstance(out.get(k),dict) else v
+        out = copy.deepcopy(base)
+        for key, value in override.items():
+            if isinstance(value, dict) and isinstance(out.get(key), dict):
+                out[key] = ConfigStore._merge(out[key], value)
+            else:
+                out[key] = value
         return out
