@@ -246,7 +246,7 @@ class AppUI(ctk.CTk):
         threading.Thread(target=self._apply_worker,args=(value,),daemon=True).start()
 
     def _apply_worker(self,value):
-        r=self.controller.set_status(value); self.after(0,lambda:self._result(r))
+        r=self.controller.set_status(value,respect_rate_limit=False); self.after(0,lambda:self._result(r))
 
     def _result(self,r):
         detail=f"[{r.stage or 'unknown'}] {r.message}"
@@ -257,7 +257,7 @@ class AppUI(ctk.CTk):
             messagebox.showerror(self._tr("Camfrog Status","สถานะ Camfrog"),self._tr(en,th))
 
     def _rotation_apply(self,value):
-        styled=self._styled(value,value); r=self.controller.set_status(styled); self.after(0,lambda:self.state.configure(text=r.message if r.ok else f"[{r.stage}] {r.message}"))
+        styled=self._styled(value,value); r=self.controller.set_status(styled,respect_rate_limit=True); self.after(0,lambda:self.state.configure(text=r.message if r.ok else f"[{r.stage}] {r.message}"))
 
     def _start(self):
         c=self._sync(); msgs=[x for x in c["status"]["editor_messages"] if x]
