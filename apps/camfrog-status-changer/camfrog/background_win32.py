@@ -52,6 +52,16 @@ def _find_edit(combo):
         if "edit" in _cls(h).casefold(): return h
     return 0
 
+def _commit_candidate_score(class_name: str, text: str = "") -> int:
+    """Score only the positively identified Camfrog status commit button.
+
+    Generic CButtonTS/Button controls are deliberately rejected because earlier
+    geometry-based guesses activated unrelated controls, including browser links.
+    """
+    cls = (class_name or "").strip().casefold()
+    return 1000 if cls == "cbuttonstatusts" else 0
+
+
 def set_status_background(parent_hwnd,relative_x,relative_y,value,*,current_text="",known_statuses=()):
     _require()
     import win32con, win32gui
