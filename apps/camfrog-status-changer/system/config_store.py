@@ -75,6 +75,7 @@ class ConfigStore:
         msgs = status.get("editor_messages")
         if msgs is None and "editor_lines" in status:
             msgs = status.get("editor_lines", [])
+            status.pop("editor_lines", None)
         if msgs is None:
             msgs = []
         if not isinstance(msgs, list):
