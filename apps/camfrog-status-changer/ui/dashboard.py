@@ -1,5 +1,5 @@
 from __future__ import annotations
-import logging, threading, tkinter as tk
+import logging, threading, tkinter as tk, ntpath, os
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from automation.rotation import RotationWorker
@@ -13,6 +13,12 @@ from system.startup import set_start_with_windows
 log=logging.getLogger(__name__)
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("green")
+
+def windows_path(value: str) -> str:
+    value=str(value or "").strip()
+    if not value:
+        return ""
+    return ntpath.normpath(value.replace("/", "\\"))
 
 class AppUI(ctk.CTk):
     def __init__(self,store):
@@ -73,7 +79,7 @@ class AppUI(ctk.CTk):
 
     def _load(self):
         c=self.config_data
-        self.exe.set(c.get("camfrog",{}).get("executable",""))
+        self.exe.set(windows_path(c.get("camfrog",{}).get("executable","")))
         for v,x in zip(self.msg_vars,c.get("status",{}).get("editor_messages",[])): v.set(x)
         s=c.get("status",{}).get("styles",{}); self.color.set(bool(s.get("random_color"))); self.marquee.set(bool(s.get("marquee")))
         sec=int(c.get("status",{}).get("rotation",{}).get("interval_seconds",600)); amt,u=seconds_to_interval(sec); self.interval.set(str(amt)); self.unit.set(u); self.mode.set(c["status"]["rotation"].get("mode","sequential"))
@@ -82,7 +88,10 @@ class AppUI(ctk.CTk):
         self._language_changed(save=False)
 
     def _sync(self):
-        c=self.config_data; c["camfrog"]["executable"]=self.exe.get().strip(); c["status"]["editor_messages"]=[v.get().strip() for v in self.msg_vars]
+        c=self.config_data
+        c["camfrog"]["executable"]=windows_path(self.exe.get())
+        self.exe.set(c["camfrog"]["executable"])
+        c["status"]["editor_messages"]=[v.get().strip() for v in self.msg_vars]
         c["status"]["styles"]["random_color"]=bool(self.color.get()); c["status"]["styles"]["marquee"]=bool(self.marquee.get())
         c["status"]["rotation"]["interval_seconds"]=interval_to_seconds(self.interval.get(),self.unit.get()); c["status"]["rotation"]["mode"]=self.mode.get()
         c["ui"]["language"]=self.language_var.get(); c["advanced"]["background_only"]=bool(self.bg.get()); c["advanced"]["fallback_enabled"]=bool(self.fg.get()) and not bool(self.bg.get())
@@ -100,12 +109,15 @@ class AppUI(ctk.CTk):
 
     def _browse(self):
         p=filedialog.askopenfilename(filetypes=[("Executable","*.exe"),("All files","*.*")])
-        if p: self.exe.set(p); self._save()
+        if p:
+            self.exe.set(windows_path(p)); self._save()
 
     def _detect(self):
-        p=discover_executable()
-        if p: self.exe.set(p); self._save(); self.state.configure(text=f"Detected: {p}")
-        else: messagebox.showwarning(self._tr("Detect","ตรวจหา"),self._tr("Camfrog executable was not found.","ไม่พบไฟล์ Camfrog"))
+        p=windows_path(discover_executable())
+        if p:
+            self.exe.set(p); self._save(); self.state.configure(text=f"Detected: {p}")
+        else:
+            messagebox.showwarning(self._tr("Detect","ตรวจหา"),self._tr("Camfrog executable was not found.","ไม่พบไฟล์ Camfrog"))
 
     def _profile(self):
         self._sync(); i=self.controller.native_profile_info()
@@ -127,11 +139,15 @@ class AppUI(ctk.CTk):
         r=self.controller.set_status(value); self.after(0,lambda:self._result(r))
 
     def _result(self,r):
-        self.state.configure(text=r.message if r.ok else f"ERROR: {r.message}")
-        if not r.ok: messagebox.showerror(self._tr("Camfrog Status","สถานะ Camfrog"),self._tr("Status was not changed. See app.log for details.","ยังไม่สามารถเปลี่ยนสถานะได้ กรุณาดู app.log"))
+        detail=f"[{r.stage or 'unknown'}] {r.message}"
+        self.state.configure(text=detail if not r.ok else r.message)
+        if not r.ok:
+            en=f"Status was not changed.\n\nStage: {r.stage or 'unknown'}\nReason: {r.message}\n\nSee app.log for technical details."
+            th=f"ยังไม่สามารถเปลี่ยนสถานะได้\n\nขั้นตอน: {r.stage or 'unknown'}\nสาเหตุ: {r.message}\n\nดูรายละเอียดทางเทคนิคได้ใน app.log"
+            messagebox.showerror(self._tr("Camfrog Status","สถานะ Camfrog"),self._tr(en,th))
 
     def _rotation_apply(self,value):
-        styled=self._styled(value,value); r=self.controller.set_status(styled); self.after(0,lambda:self.state.configure(text=r.message if r.ok else f"ERROR: {r.message}"))
+        styled=self._styled(value,value); r=self.controller.set_status(styled); self.after(0,lambda:self.state.configure(text=r.message if r.ok else f"[{r.stage}] {r.message}"))
 
     def _start(self):
         c=self._sync(); msgs=[x for x in c["status"]["editor_messages"] if x]
@@ -162,5 +178,5 @@ class AppUI(ctk.CTk):
         self._sync(); set_start_with_windows(bool(self.startup.get()))
 
     def _open_config(self):
-        import os; self.store.dir.mkdir(parents=True,exist_ok=True)
+        self.store.dir.mkdir(parents=True,exist_ok=True)
         if os.name=="nt": os.startfile(self.store.dir)

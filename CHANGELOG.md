@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Fixed — runtime follow-up
+
+- Wired the existing **Allow foreground fallback** UI option into the controller instead of failing immediately after background verification fails.
+- Added explicit foreground fallback flow: restore/focus Camfrog, use configured relative status target, replace one message, press Enter, and restore minimized state.
+- Added status-change stages to error reporting so dialogs identify whether failure occurred at validation, rate limit, background verification, foreground fallback, or runtime exception.
+- Normalized Camfrog executable paths to Windows backslash form for Detect, Browse, load, and save.
+- Initialized COM in STA mode before loading the UI/controller stack to avoid pywinauto/comtypes apartment-mode churn.
+- Reduced Windows PyInstaller warning noise by excluding unused Linux/macOS tray/UI backends while keeping Win32 tray support explicit.
+
 ### Integrated — 2026-10-01
 
 - Integrated Camfrog Status Changer `2.3.1-rc2` project documentation and core application modules.
@@ -17,11 +26,9 @@
 - Added config recovery, single-instance behavior, log rotation and release SHA-256 manifest design.
 - Added RE findings for `CSPacket020401.text_status` and Text Over Video `TOV_*` settings.
 
-### Verified in the integrated implementation package
+### Evidence baseline
 
-- pytest: 41 passed
-- Python compile check: PASS
-- self-test: PASS
+The prior integrated implementation package reported 41 passing tests. Repository CI must independently validate each committed revision.
 
 ### Still unverified
 

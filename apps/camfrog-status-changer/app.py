@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+# comtypes/pywinauto use this flag when COM is first initialized. Setting it
+# before importing the UI/controller stack avoids apartment-mode churn and the
+# "Revert to STA COM threading mode" warning seen in packaged builds.
+import sys
+sys.coinit_flags = 2  # COINIT_APARTMENTTHREADED / STA
+
 import logging
 from tkinter import messagebox
 
