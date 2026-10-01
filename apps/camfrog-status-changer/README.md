@@ -1,30 +1,52 @@
 # Camfrog Status Changer
 
-Version: **2.3.1-rc2**
+This folder is an optional Windows application/profile inside the reusable `ztemplate` repository.
 
-This folder contains the Windows application integrated into `cvsz/zcsc`.
+Current candidate: **2.3.1-rc2 + recovery hotfixes**
 
 ## Features
 
-- four independent messages
+- four independent status messages
 - one tick = one message = one apply attempt
 - seconds/minutes/hours intervals
 - sequential/random rotation
-- background-first safe native automation
+- background-first native automation
 - explicit foreground fallback
 - TH/EN UI
-- read-only status-history discovery
+- read-only Camfrog status-history discovery
 - Unicode color markers and text-frame marquee
 - known Camfrog binary fingerprint profile
-- safe user dialogs and technical logging
-- PyInstaller windowed build and SHA-256 manifest
+- rotating logs, config recovery and single-instance guard
+- Windows startup and system tray
+- safe diagnostics and release SHA-256 manifest
+- PyInstaller hidden-console build with `app.ico`
 
-## Run
+## Development
 
-```powershell
-py -m pip install -r requirements.txt
-py app.py
+```cmd
+run_dev.bat
 ```
+
+## Self-test
+
+```cmd
+py self_test.py
+```
+
+Writes:
+
+```text
+%APPDATA%\CamfrogStatusChanger\self-test.json
+```
+
+## Camfrog diagnostics
+
+```cmd
+py diagnose_camfrog.py
+py registry_history_dump.py
+```
+
+Outputs are sanitized and do not intentionally collect passwords, tokens, cookies or session material.
 
 ## Build
 
@@ -32,6 +54,13 @@ py app.py
 build_exe_fixed.bat
 ```
 
-## Important limitation
+Artifacts:
 
-A local UI/control update is not proof that Camfrog published the status to the service. Production readiness requires an independent Camfrog session/account to observe the changed status on the exact supported client build.
+```text
+dist\CamfrogStatusChanger.exe
+dist\release-manifest.json
+```
+
+## Verification boundary
+
+A successful local control update or successful PyInstaller build does not prove server-visible publication. Production readiness still requires independent-session verification on the exact supported Camfrog build.
