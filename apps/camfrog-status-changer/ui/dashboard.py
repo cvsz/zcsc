@@ -27,7 +27,19 @@ class AppUI(ctk.CTk):
         self.rotation=RotationWorker(self._rotation_apply); self._marquee_offsets={}
         self.geometry("780x700"); self.minsize(720,600)
         self.language_var=tk.StringVar(value=self.config_data.get("ui",{}).get("language","EN"))
-        self._build(); self._load()
+        self._build()
+        self._restore_tk_title_method()
+        self._load()
+
+    def _restore_tk_title_method(self):
+        """Recover if an older/local UI build shadowed Tk.title with a widget."""
+        instance_title = self.__dict__.get("title")
+        if instance_title is not None and not callable(instance_title):
+            log.warning(
+                "Removing non-callable AppUI.title instance attribute: %s",
+                type(instance_title).__name__,
+            )
+            del self.__dict__["title"]
 
     def _tr(self,en,th): return th if self.language_var.get()=="TH" else en
 
@@ -101,7 +113,7 @@ class AppUI(ctk.CTk):
 
     def _language_changed(self,save=True):
         if save: self._sync()
-        th=self.language_var.get()=="TH"; self.title(("ตัวเปลี่ยนสถานะ Camfrog" if th else "Camfrog Status Changer"))
+        th=self.language_var.get()=="TH"; self.wm_title(("ตัวเปลี่ยนสถานะ Camfrog" if th else "Camfrog Status Changer"))
         self.header.configure(text=("ตัวเปลี่ยนสถานะ Camfrog" if th else "Camfrog Status Changer"))
         for i,l in enumerate(self.msg_labels): l.configure(text=(f"ข้อความ {i+1}" if th else f"Message {i+1}"))
         for b in self.apply_buttons: b.configure(text=("ใช้" if th else "Apply"))
