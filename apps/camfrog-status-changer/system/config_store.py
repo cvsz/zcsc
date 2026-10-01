@@ -67,11 +67,16 @@ class ConfigStore:
         adv = data.setdefault("advanced", {})
         adv["minimum_interval_seconds"] = max(5, int(adv.get("minimum_interval_seconds", 5)))
         adv["max_status_length"] = min(512, max(1, int(adv.get("max_status_length", 160))))
+        adv["apply_timeout_seconds"] = min(30, max(1, int(adv.get("apply_timeout_seconds", 10))))
         status = data.setdefault("status", {})
         rot = status.setdefault("rotation", {})
         rot["interval_seconds"] = max(adv["minimum_interval_seconds"], int(rot.get("interval_seconds", 600)))
         rot["mode"] = rot.get("mode") if rot.get("mode") in {"sequential", "random"} else "sequential"
-        msgs = status.get("editor_messages", [])
+        msgs = status.get("editor_messages")
+        if msgs is None and "editor_lines" in status:
+            msgs = status.get("editor_lines", [])
+        if msgs is None:
+            msgs = []
         if not isinstance(msgs, list):
             msgs = [str(msgs)]
         msgs = [str(value).replace("\x00", "").strip()[: adv["max_status_length"]] for value in msgs[:4]]
@@ -85,6 +90,9 @@ class ConfigStore:
                 presets.append(value)
                 seen.add(key)
         status["presets"] = presets
+        target = data.setdefault("target", {})
+        target["fallback_relative_x"] = min(1.0, max(0.0, float(target.get("fallback_relative_x", 0.5))))
+        target["fallback_relative_y"] = min(1.0, max(0.0, float(target.get("fallback_relative_y", 0.19))))
         styles = status.setdefault("styles", {})
         styles["random_color"] = bool(styles.get("random_color", False))
         styles["marquee"] = bool(styles.get("marquee", False))
