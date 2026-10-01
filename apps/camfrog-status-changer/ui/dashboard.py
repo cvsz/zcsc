@@ -21,6 +21,18 @@ def windows_path(value: str) -> str:
     return ntpath.normpath(value.replace("/", "\\"))
 
 class AppUI(ctk.CTk):
+    def __setattr__(self, name, value):
+        # Tk/CustomTkinter relies on the inherited title() method internally.
+        # Redirect accidental legacy widget assignment instead of shadowing it.
+        if name == "title" and not callable(value):
+            object.__setattr__(self, "title_label", value)
+            logging.getLogger(__name__).warning(
+                "Redirected non-callable AppUI.title assignment to title_label: %s",
+                type(value).__name__,
+            )
+            return
+        super().__setattr__(name, value)
+
     def __init__(self,store):
         super().__init__()
         self.store=store; self.config_data=store.load(); self.controller=CamfrogController(self.config_data)
