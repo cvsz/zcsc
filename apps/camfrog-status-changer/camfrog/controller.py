@@ -58,7 +58,7 @@ class CamfrogController:
         except Exception as exc:
             return {"matched":False,"sha256":"","name":"","error":str(exc)}
 
-    def set_status(self,value,*,respect_rate_limit=True):
+    def set_status(self,value,*,respect_rate_limit=True,force_enter_commit=False):
         value=str(value).replace("\x00","")
         if not value.strip(): return ChangeResult(False,"Status cannot be empty",stage="validate")
         max_len=int(self.config.get("advanced",{}).get("max_status_length",160))
@@ -89,7 +89,7 @@ class CamfrogController:
                     known_statuses=self.config.get("status",{}).get("presets",[]),
                 )
                 background_message=r.message
-                if r.ok and r.verified:
+                if r.ok and r.verified and not force_enter_commit:
                     if respect_rate_limit:
                         self._last=time.monotonic()
                     return ChangeResult(
@@ -100,7 +100,10 @@ class CamfrogController:
                         publication_verified=False,
                     )
 
-            allow_foreground=bool(advanced.get("fallback_enabled",False)) and not bool(advanced.get("background_only",True))
+            allow_foreground=(
+                bool(force_enter_commit)
+                or (bool(advanced.get("fallback_enabled",False)) and not bool(advanced.get("background_only",True)))
+            )
             if allow_foreground:
                 fg=apply_status_foreground(
                     hwnd,
@@ -115,7 +118,7 @@ class CamfrogController:
                         True,
                         fg.message + "; server publication still requires independent verification",
                         new_value=value,
-                        stage="foreground-submitted",
+                        stage="foreground-enter-committed" if force_enter_commit else "foreground-submitted",
                         publication_verified=False,
                     )
                 detail=f"{background_message}; {fg.message}".strip("; ")
