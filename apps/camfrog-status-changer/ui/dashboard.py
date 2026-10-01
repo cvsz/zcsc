@@ -39,6 +39,7 @@ class AppUI(ctk.CTk):
         self.rotation=RotationWorker(self._rotation_apply); self._marquee_offsets={}
         self.geometry("780x700"); self.minsize(720,600)
         self.language_var=tk.StringVar(value=self.config_data.get("ui",{}).get("language","EN"))
+        self._install_clipboard_shortcuts()
         self._build()
         self._restore_tk_title_method()
         self._load()
@@ -54,6 +55,76 @@ class AppUI(ctk.CTk):
             del self.__dict__["title"]
 
     def _tr(self,en,th): return th if self.language_var.get()=="TH" else en
+
+    def _install_clipboard_shortcuts(self):
+        """Install one class-level clipboard handler without duplicate virtual events."""
+        def select_all(event):
+            widget = event.widget
+            try:
+                if isinstance(widget, tk.Text):
+                    widget.tag_add("sel", "1.0", "end-1c")
+                    widget.mark_set("insert", "1.0")
+                else:
+                    widget.selection_range(0, "end")
+                    widget.icursor("end")
+            except Exception:
+                return None
+            return "break"
+
+        def copy(event):
+            widget = event.widget
+            try:
+                text = widget.selection_get()
+                self.clipboard_clear()
+                self.clipboard_append(text)
+            except Exception:
+                pass
+            return "break"
+
+        def cut(event):
+            widget = event.widget
+            try:
+                text = widget.selection_get()
+                self.clipboard_clear()
+                self.clipboard_append(text)
+                if isinstance(widget, tk.Text):
+                    widget.delete("sel.first", "sel.last")
+                else:
+                    widget.delete("sel.first", "sel.last")
+            except Exception:
+                pass
+            return "break"
+
+        def paste(event):
+            widget = event.widget
+            try:
+                text = self.clipboard_get()
+                if isinstance(widget, tk.Text):
+                    try:
+                        widget.delete("sel.first", "sel.last")
+                    except Exception:
+                        pass
+                    widget.insert("insert", text)
+                else:
+                    try:
+                        widget.delete("sel.first", "sel.last")
+                    except Exception:
+                        pass
+                    widget.insert("insert", text)
+            except Exception:
+                pass
+            return "break"
+
+        classes = ("Entry", "TEntry", "Text")
+        for cls in classes:
+            self.bind_class(cls, "<Control-a>", select_all)
+            self.bind_class(cls, "<Control-A>", select_all)
+            self.bind_class(cls, "<Control-c>", copy)
+            self.bind_class(cls, "<Control-C>", copy)
+            self.bind_class(cls, "<Control-x>", cut)
+            self.bind_class(cls, "<Control-X>", cut)
+            self.bind_class(cls, "<Control-v>", paste)
+            self.bind_class(cls, "<Control-V>", paste)
 
     def _build(self):
         root=ctk.CTkScrollableFrame(self); root.pack(fill="both",expand=True,padx=12,pady=12)
@@ -80,8 +151,9 @@ class AppUI(ctk.CTk):
 
         sf=ctk.CTkFrame(root); sf.pack(fill="x",pady=5)
         self.color=tk.BooleanVar(); self.marquee=tk.BooleanVar()
-        ctk.CTkCheckBox(sf,text="Random Color Marker",variable=self.color,command=self._save).pack(side="left",padx=8,pady=8)
-        ctk.CTkCheckBox(sf,text="Marquee",variable=self.marquee,command=self._save).pack(side="left",padx=8,pady=8)
+        ctk.CTkCheckBox(sf,text="Random Color Marker",variable=self.color,command=self._style_changed).pack(side="left",padx=8,pady=8)
+        ctk.CTkCheckBox(sf,text="Marquee",variable=self.marquee,command=self._style_changed).pack(side="left",padx=8,pady=8)
+        self.status_preview=ctk.CTkLabel(sf,text=""); self.status_preview.pack(side="left",padx=8,pady=8)
 
         rf=ctk.CTkFrame(root); rf.pack(fill="x",pady=5)
         self.interval=tk.StringVar(value="10"); self.unit=tk.StringVar(value="minutes"); self.mode=tk.StringVar(value="sequential")
@@ -122,6 +194,20 @@ class AppUI(ctk.CTk):
         c["startup"]["windows_startup"]=bool(self.startup.get()); self.store.save(c); self.config_data=self.store.load(); self.controller.config=self.config_data; return self.config_data
 
     def _save(self): self._sync()
+
+    def _style_changed(self):
+        self._sync()
+        self._refresh_status_preview()
+
+    def _refresh_status_preview(self):
+        if not hasattr(self, "status_preview"):
+            return
+        raw = next((v.get().strip() for v in self.msg_vars if v.get().strip()), "")
+        if not raw:
+            self.status_preview.configure(text="")
+            return
+        preview = self._styled(raw, "preview")
+        self.status_preview.configure(text=preview)
 
     def _language_changed(self,save=True):
         if save: self._sync()
@@ -183,12 +269,14 @@ class AppUI(ctk.CTk):
         self.rotation.stop(); self.config_data["status"]["rotation"]["enabled"]=False; self.store.save(self.config_data); self.state.configure(text=self._tr("Rotation stopped","หยุดหมุนแล้ว"))
 
     def _history(self):
-        vals=read_camfrog_custom_statuses()
-        if not vals: return messagebox.showinfo(self._tr("Camfrog History","ประวัติ Camfrog"),self._tr("No custom-status history was found.","ไม่พบประวัติสถานะ"))
-        text="\n".join(f"{i+1}. {v.text}" for i,v in enumerate(vals[:30]))
+        result=read_camfrog_custom_statuses()
+        history=list(result.history or [])
+        if not result.statuses:
+            return messagebox.showinfo(self._tr("Camfrog History","ประวัติ Camfrog"),self._tr("No custom-status history was found.","ไม่พบประวัติสถานะ"))
+        text="\n".join(f"{i+1}. {value}" for i,value in enumerate(result.statuses[:30]))
         if messagebox.askyesno(self._tr("Camfrog History","ประวัติ Camfrog"),self._tr("Found status history:\n\n","พบประวัติสถานะ:\n\n")+text+"\n\n"+self._tr("Import all into presets?","นำเข้าทั้งหมดเป็น Presets หรือไม่?")):
-            self.config_data["status"]["presets"]=merge_presets(self.config_data["status"].get("presets",[]),vals); self.store.save(self.config_data)
-        log.info("History sources: %s",[(v.text,v.source,v.value_name) for v in vals])
+            self.config_data["status"]["presets"]=merge_presets(self.config_data["status"].get("presets",[]),result.statuses); self.store.save(self.config_data)
+        log.info("History sources: %s",[(v.text,v.source,v.value_name) for v in history])
 
     def _bg_toggle(self):
         if self.bg.get(): self.fg.set(False)
