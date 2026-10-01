@@ -33,7 +33,11 @@ def main() -> int:
     try:
         app = AppUI(store=store)
         localized_name = "ตัวเปลี่ยนสถานะ Camfrog" if app.language_var.get() == "TH" else APP_NAME
-        app.title(f"{localized_name} {VERSION}")
+        app.wm_title(f"{localized_name} {VERSION}")
+        shadow = app.__dict__.get("title")
+        if shadow is not None and not callable(shadow):
+            log.warning("Removing non-callable title before mainloop: %s", type(shadow).__name__)
+            del app.__dict__["title"]
         app.mainloop()
         return 0
     except Exception:
