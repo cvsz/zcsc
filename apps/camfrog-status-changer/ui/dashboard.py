@@ -246,7 +246,7 @@ class AppUI(ctk.CTk):
         threading.Thread(target=self._apply_worker,args=(value,),daemon=True).start()
 
     def _apply_worker(self,value):
-        r=self.controller.set_status(value,respect_rate_limit=False); self.after(0,lambda:self._result(r))
+        r=self.controller.set_status(value,respect_rate_limit=False,force_enter_commit=True); self.after(0,lambda:self._result(r))
 
     def _result(self,r):
         detail=f"[{r.stage or 'unknown'}] {r.message}"
