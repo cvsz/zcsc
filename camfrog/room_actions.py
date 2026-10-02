@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -18,6 +19,16 @@ def room_title_matches(window_title: str, room_name: str) -> bool:
     return bool(name) and title in {name, f"{name}{CAMFROG_ROOM_TITLE_SUFFIX.casefold()}"}
 
 
+def is_safe_room_nickname(username: str) -> bool:
+    """Accept one bounded nickname without command or display-control characters."""
+    return bool(username) and len(username) <= 64 and all(
+        (character.isalnum() or character in "_.-")
+        and not character.isspace()
+        and unicodedata.category(character) not in {"Cc", "Cf", "Cs", "Zl", "Zp"}
+        for character in username
+    )
+
+
 @dataclass
 class RoomActionResult:
     ok: bool
@@ -28,13 +39,18 @@ class RoomActionResult:
 def build_room_command(action: str, target: str, template: str) -> tuple[str | None, str]:
     if action not in ROOM_ACTIONS:
         return None, "Select a supported room action"
-    username = str(target).strip()
-    if not username or len(username) > 64 or any(
-        not (char.isalnum() or char in "_.-") for char in username
-    ):
+    username = target if isinstance(target, str) else ""
+    if not is_safe_room_nickname(username):
         return None, "Enter one nickname using letters, numbers, dot, underscore, or hyphen"
-    value = str(template).strip()
-    if not value or "\r" in value or "\n" in value or value.count("{username}") != 1:
+    raw_template = str(template)
+    if any(
+        character in "\r\n\u0085\u2028\u2029"
+        or unicodedata.category(character) in {"Cc", "Cf", "Cs"}
+        for character in raw_template
+    ):
+        return None, "Configure a single-line command template with exactly one {username} token"
+    value = raw_template.strip()
+    if not value or value.count("{username}") != 1:
         return None, "Configure a single-line command template with exactly one {username} token"
     if not value.startswith("/"):
         return None, "Room command templates must start with /"

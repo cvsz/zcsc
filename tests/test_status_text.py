@@ -17,5 +17,17 @@ def test_embedded_newline_inside_field_is_flattened():
     assert compose_two_lines(["a\nb", "c"]) == "a b\r\nc"
 
 
+def test_deprecated_two_line_helper_preserves_all_four_message_rows():
+    assert compose_two_lines(["one", "two", "three", "four"]) == "one\r\ntwo\r\nthree\r\nfour"
+
+
 def test_comparison_normalizes_crlf_and_lf():
     assert comparable_status("a\r\nb") == comparable_status("a\nb")
+
+
+def test_comparison_strips_trailing_nuls():
+    assert comparable_status("status\x00\x00") == comparable_status("status")
+
+
+def test_comparison_normalizes_unicode_to_nfc():
+    assert comparable_status("e\u0301") == comparable_status("\u00e9")

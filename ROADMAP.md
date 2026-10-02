@@ -6,7 +6,7 @@ ZeaZDev-CamfrogStatusChanger is the project name; Camfrog Status Changer is its 
 
 - [x] Manual status entry with a separate stage-only path
 - [x] TH/EN standard status catalog and editable presets
-- [x] Sequential/random one-message-per-tick rotation and marquee frames
+- [x] Sequential/random one-message-per-tick rotation, including Camfrog Status History, and one-character marquee frames
 - [x] Optional auto reply, room phrase notifications, room commands, and bad-word moderation
 - [x] Read-only Camfrog profile/history discovery and diagnostics
 - [x] Windows executable workflow with SHA-256 manifest artifact

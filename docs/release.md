@@ -2,7 +2,7 @@
 
 ## Scope
 
-The Windows application workflow runs tests, builds the executable, generates a SHA-256 manifest, and uploads a short-lived workflow artifact. It does not publish a GitHub Release, sign the executable, or establish production readiness.
+The Windows application workflow and local batch entrypoints use `scripts/build_windows.py` as the single test/build/manifest implementation. It installs `requirements-build.lock` with `--require-hashes`, audits the lock, runs tests and compile checks, builds into isolated staging directories, verifies the manifest against the staged executable, then publishes the EXE and manifest to `dist/`. CI uploads the executable and manifest as a short-lived workflow artifact. The Ubuntu workflow also uploads a JUnit test report. These workflows do not publish a GitHub Release, sign the executable, or establish production readiness.
 
 ## Versioning
 

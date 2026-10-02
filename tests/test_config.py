@@ -11,6 +11,9 @@ def test_merge_preserves_defaults():
 def test_fresh_config_uses_blank_user_status_values():
     assert DEFAULT_CONFIG["status"]["presets"] == []
     assert DEFAULT_CONFIG["status"]["editor_messages"] == ["", "", "", ""]
+    assert DEFAULT_CONFIG["status"]["rotation"]["source"] == "messages"
+    assert DEFAULT_CONFIG["status"]["styles"]["marquee_single_character"] is True
+    assert DEFAULT_CONFIG["status"]["styles"]["marquee_frame_interval_seconds"] == 5
 
 
 def test_profile_link_nickname_is_sanitized_and_bounded():

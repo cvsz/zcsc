@@ -74,23 +74,40 @@ def _clean_status(value: str) -> str | None:
 def _carve_utf16_strings(data: bytes) -> list[str]:
     out: list[str] = []
     # Carve UTF-16LE printable runs at both byte alignments. Camfrog REG_BINARY
-    # blobs may prepend small metadata fields, so decoding the whole blob can
-    # attach a garbage codepoint to the first history item.
+    # blobs may prepend an odd-sized metadata field. Only accept a string run
+    # when a complete UTF-16 NUL terminator follows it; truncated trailing data
+    # must not become a plausible but incomplete status.
     for offset in (0, 1):
         chunk = data[offset:]
         # Printable ASCII/Latin text encoded as UTF-16LE: byte, NUL repeated.
         # This covers observed English status history robustly; non-ASCII text
         # is also handled by the whole-run fallback below.
-        for m in re.finditer(rb"(?:[\x20-\x7e]\x00){3,160}", chunk):
+        for m in re.finditer(rb"(?<![\x20-\x7e]\x00)(?:[\x20-\x7e]\x00){3,160}", chunk):
+            if chunk[m.end():m.end() + 2] != b"\x00\x00":
+                continue
             text = m.group(0).decode("utf-16-le", errors="ignore")
             cleaned = _clean_status(text)
             if cleaned:
                 out.append(cleaned)
-        # Fallback for Unicode scripts: split aligned UTF-16 text on control/NUL
-        # boundaries, then apply the same strict human-status filter.
-        text = chunk[: len(chunk) - (len(chunk) % 2)].decode("utf-16-le", errors="ignore")
-        for part in re.split(r"[\x00-\x1f]+", text):
-            cleaned = _clean_status(part)
+
+    # Fallback for Unicode scripts. Select the byte alignment with the most
+    # complete UTF-16 NUL units, then accept only NUL-terminated runs. Decoding
+    # both alignments unconditionally can turn an odd metadata prefix into a
+    # convincing-looking but corrupted status.
+    alignments = []
+    for offset in (0, 1):
+        chunk = data[offset:]
+        aligned = chunk[: len(chunk) - (len(chunk) % 2)]
+        null_units = sum(
+            aligned[index:index + 2] == b"\x00\x00"
+            for index in range(0, len(aligned), 2)
+        )
+        alignments.append((null_units, offset, aligned))
+    null_units, _offset, aligned = max(alignments, key=lambda item: (item[0], -item[1]))
+    if null_units:
+        text = aligned.decode("utf-16-le", errors="ignore")
+        for match in re.finditer(r"(?<![^\x00-\x1f])[^\x00-\x1f]{3,160}(?=\x00)", text):
+            cleaned = _clean_status(match.group(0))
             if cleaned:
                 out.append(cleaned)
     return out
@@ -98,9 +115,9 @@ def _carve_utf16_strings(data: bytes) -> list[str]:
 
 def _carve_ascii_strings(data: bytes) -> list[str]:
     out: list[str] = []
-    # Extract printable runs directly from REG_BINARY. Minimum 3 bytes preserves
-    # values such as Busy while filtering most metadata fragments downstream.
-    for m in re.finditer(rb"[\x20-\x7e]{3,160}", data):
+    # Extract complete, delimiter-terminated printable runs directly from
+    # REG_BINARY. An unterminated tail may be a truncated value and is omitted.
+    for m in re.finditer(rb"(?<![\x20-\x7e])[\x20-\x7e]{3,160}(?=[\x00-\x1f\x7f-\xff])", data):
         try:
             text = m.group(0).decode("utf-8", errors="strict")
         except UnicodeDecodeError:
@@ -205,6 +222,10 @@ def read_camfrog_custom_statuses(max_depth: int = 12) -> RegistryStatusResult:
     def walk(path: str, view_flag: int, depth: int) -> None:
         nonlocal scanned_keys, candidate_values
         if depth > max_depth:
+            return
+        # Never enter credential, session, token, or other sensitive branches,
+        # even when a nested key happens to contain "status" or "custom".
+        if _contains_any(path, SENSITIVE_TERMS):
             return
         token = (path.casefold(), view_flag)
         if token in visited:

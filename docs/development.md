@@ -8,12 +8,14 @@ ZeaZDev-CamfrogStatusChanger is the project; Camfrog Status Changer is its Windo
 2. Install the application and development dependencies:
 
    ```bash
-   py -m pip install -r requirements.txt pytest pyinstaller==6.22.3
+   py -3 -m pip install --require-hashes -r requirements-build.lock
    ```
 
 3. Run `run_dev.bat` to start the app, or use the repository tasks below.
 
-Build outputs are ignored and are not part of a fresh source checkout. The builder isolates PyInstaller work under `build/CamfrogStatusChanger-work`; it must not clean adjacent Camfrog analysis files in the `build/` tree.
+`requirements.in` contains direct application dependencies. `requirements.txt` is the universal, SHA-256-hashed application lock. `requirements-build.in` adds the test, audit, and PyInstaller tools; `requirements-build.lock` is the corresponding universal lock used by local builds and CI. Install locks with `--require-hashes`.
+
+Build outputs are ignored and are not part of a fresh source checkout. `scripts/build_windows.py` is the sole test/build/manifest implementation used by the batch entrypoints and Windows workflow. It stages PyInstaller work under `build/CamfrogStatusChanger-work` and `.tmp/`; it must not clean adjacent Camfrog analysis files in the `build/` tree.
 
 ## Repository tasks
 
@@ -25,6 +27,8 @@ make build
 ```
 
 `make build` is Windows-only. On other hosts, use the Windows GitHub Actions workflow to build the executable.
+
+To refresh either lock after reviewing dependency changes, use `uv pip compile --generate-hashes --universal --python-version 3.12 --output-file requirements.txt requirements.in` and `uv pip compile --generate-hashes --universal --python-version 3.12 --output-file requirements-build.lock requirements-build.in`. Run `pip-audit -r requirements-build.lock` and verify `pip install --require-hashes` before submitting the lock update.
 
 ## Quality expectations
 
