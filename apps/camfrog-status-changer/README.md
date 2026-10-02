@@ -2,7 +2,7 @@
 
 This folder is an optional Windows application/profile inside the reusable `ztemplate` repository.
 
-Current candidate: **2.3.1-rc2 + recovery hotfixes**
+Current candidate: **2.3.2-rc5 hybrid pywinauto**
 
 ## Features
 
