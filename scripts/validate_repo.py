@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate ztemplate structure and local Markdown links."""
+"""Validate required zcsc project files and local Markdown links."""
 
 from __future__ import annotations
 
@@ -12,6 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_PATHS = (
     "README.md",
+    "app.py",
+    "requirements.txt",
+    "camfrog/controller.py",
+    "ui/dashboard.py",
     "ABOUT.md",
     "AGENTS.md",
     "CLAUDE.md",
@@ -22,7 +26,8 @@ REQUIRED_PATHS = (
     "CODE_OF_CONDUCT.md",
     "CHANGELOG.md",
     "ROADMAP.md",
-    "IMPLEMENTATION-CHECKLIST.md",
+    "docs/startup.md",
+    "PRODUCTION-READINESS.md",
     ".github/PULL_REQUEST_TEMPLATE.md",
     ".github/dependabot.yml",
     "docs/ai/README.md",
@@ -70,8 +75,7 @@ def validate_markdown_links() -> list[str]:
             target = normalize_link_target(raw)
             if not target:
                 continue
-            link_base = ROOT if md.relative_to(ROOT).as_posix() == "templates/project-readme.md" else md.parent
-            resolved = (link_base / target).resolve()
+            resolved = (md.parent / target).resolve()
             try:
                 resolved.relative_to(ROOT.resolve())
             except ValueError:

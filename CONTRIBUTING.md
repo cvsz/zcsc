@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for contributing to projects created from this template.
+Thanks for contributing to ZeaZDev-CamfrogStatusChanger, including its Camfrog Status Changer desktop application and shared engineering tools.
 
 ## Development workflow
 
@@ -19,7 +19,7 @@ Use concise prefixes such as `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `t
 
 Prefer Conventional Commits, for example:
 
-- `feat: add project scaffolding`
+- `feat: add a status preset filter`
 - `fix: handle empty configuration`
 - `security: harden token validation`
 - `docs: update deployment guide`
@@ -35,10 +35,10 @@ Do not report exploitable vulnerabilities in public issues. Follow `SECURITY.md`
 
 ## Repository validation
 
-Before opening or updating a pull request, run the repository validator when your change affects template structure or documentation:
+Before opening or updating a pull request, run the repository validator when your change affects application structure or documentation:
 
 ```bash
-make validate-template
+make validate-repo
 ```
 
 Do not merge from an older green commit after the PR head changes. Required checks must pass for the current exact head.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configure and verify GitHub repository administration gates for ztemplate.
+"""Configure and verify GitHub repository administration gates for zcsc.
 
 Dry-run is the default. Use --apply only with an authenticated gh CLI identity
 that has repository Administration permission.
@@ -13,11 +13,13 @@ import subprocess
 import sys
 from typing import Any
 
-DEFAULT_REPO = "cvsz/ztemplate"
+DEFAULT_REPO = "cvsz/zcsc"
 DEFAULT_BRANCH = "main"
 REQUIRED_CHECKS = (
     "repository-baseline",
+    "test",
     "Analyze GitHub Actions",
+    "CodeQL",
     "dependency-review",
 )
 

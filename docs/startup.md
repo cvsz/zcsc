@@ -1,108 +1,51 @@
-# Start a project from ztemplate
+# Set up Camfrog Status Changer
 
-This repository is a language-agnostic governance/tooling baseline, not a deployable product.
+Camfrog Status Changer is a Windows desktop application for user-managed Camfrog status presets and optional UI automation. The application does not verify that Camfrog or its server accepted a submitted status or room command.
 
-Use GitHub **Use this template** when independent history is desired, clone the generated repository, and work through a feature branch.
+## Requirements
 
-## 1. Initialize project identity
+- Windows 10 or 11
+- Python 3.12 for development, or the packaged executable from a trusted workflow artifact
+- A locally installed Camfrog client for interactive integration
 
-Requires Python 3.10+ and Git.
+## Run from source
 
-Preview:
+In PowerShell, from the repository root:
 
-```bash
-python3 scripts/bootstrap.py --name my-service --owner my-org --codeowner my-org/maintainers --description 'Describe the product'
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt pytest pyinstaller==6.22.3
+.\run_dev.bat
 ```
 
-Apply:
+The app stores its settings at `%APPDATA%\CamfrogStatusChanger\config.json` on Windows, or `~/.config/CamfrogStatusChanger/config.json` when `APPDATA` is unset. Review local settings and logs before sharing them; they may contain personal status text, nicknames, room names, or UI selectors.
 
-```bash
-python3 scripts/bootstrap.py --name my-service --owner my-org --codeowner my-org/maintainers --description 'Describe the product' --apply
+## Build and validate
+
+```powershell
+python -m pytest -q
+python -m compileall -q app.py automation camfrog system ui version.py self_test.py
+.\build_exe.bat
 ```
 
-Review `git diff` and commit the generated identity marker only after confirming the resulting project metadata and ownership.
+The Windows workflow also runs the tests, builds the executable, creates a SHA-256 manifest, and uploads a temporary artifact. Build outputs are not committed to Git.
 
-## 2. Validate the inherited baseline
+On POSIX development hosts, use `python3 -m pytest -q`, `python3 -m compileall ...`, and `make validate-repo`. The executable build requires Windows.
 
-```bash
-make validate-template
-```
+## First interactive run
 
-This validates repository structure, local Markdown links, and bootstrap behavior. Application-specific Makefile targets intentionally fail until replaced.
+1. Start Camfrog and sign in through its own UI.
+2. Launch Camfrog Status Changer and use **Setup** to select or detect the Camfrog executable.
+3. Configure status text or UI Automation selectors only for controls you have inspected on your Camfrog build.
+4. Keep room actions and moderation disabled until the room, selectors, syntax, and permissions have been verified in a controlled test room.
+5. Test status submission with a harmless value. A local UI write and Enter dispatch do not prove server-visible publication.
 
-## 3. Configure repository administration
+Camfrog's UI and internal control behavior may change between client versions. Unknown controls must not be guessed; the status integration requires a positively identified control or an explicit configured automation ID.
 
-The inherited script is dry-run by default:
+## Configuration and security
 
-```bash
-python3 scripts/github_admin.py --repo my-org/my-service
-```
-
-Apply and read back effective settings:
-
-```bash
-python3 scripts/github_admin.py --repo my-org/my-service --apply
-```
-
-Later verification:
-
-```bash
-python3 scripts/github_admin.py --repo my-org/my-service --verify
-```
-
-This step requires an authenticated `gh` identity with repository Administration permission.
-
-Do not treat the presence of the script as proof that branch/security settings are enabled.
-
-## 4. Make project-specific decisions
-
-- choose language/runtime/framework/package manager and supported versions
-- review licensing and attribution
-- replace the placeholder Dockerfile and Makefile application commands
-- set real maintainers/CODEOWNERS
-- replace the generic security support policy
-- define authentication/authorization and data-retention requirements
-- define secrets, environments, release policy, and deployment protections
-- add stack-specific CI/security checks
-- choose backup/recovery/rollback requirements
-- define observability and incident ownership
-
-See [profiles](profiles.md) and the [implementation checklist](../IMPLEMENTATION-CHECKLIST.md).
-
-## 5. Development baseline
-
-Copy `.env.example` to a local ignored `.env`. Add real code, tests, build tooling, security checks, and deterministic dependency installation.
-
-Do not remove inherited security checks merely to simplify CI.
-
-## 6. Operations and release evidence
-
-Complete:
-
-- [architecture](architecture.md)
-- [development](development.md)
-- [release](release.md)
-- [implementation checklist](../IMPLEMENTATION-CHECKLIST.md)
-
-For an application intended for production, establish environment-appropriate evidence for applicable gates such as:
-
-- deployment verification
-- authenticated health/readiness checks
-- structured logs/metrics/traces
-- alert routing
-- backup and isolated restore
-- rollback to a known-good build
-- RPO/RTO
-- load/capacity validation
-- security response contacts
-- incident/runbook procedures
-
-Green repository CI is not proof of application production readiness.
-
-## 7. Public hostnames
-
-Follow the [central Cloudflare/DNS ownership contract](cloudflare-terraform.md). Never introduce duplicate ownership of public DNS or a shared tunnel from an application repository when a designated infrastructure repository already owns it.
-
-## 8. Existing repositories
-
-When adopting this baseline into an established project, do not copy the template wholesale. Follow the [repository rollout guide](repository-rollout.md) and preserve repository-specific architecture, policy, tests, and operational contracts.
+- Do not store Camfrog passwords, session tokens, or browser cookies in this application or repository.
+- Keep user-specific settings, logs, screenshots, and Camfrog profile data out of commits and issue reports.
+- Review the application [security policy](../SECURITY.md) and [production-readiness gates](../PRODUCTION-READINESS.md) before distributing a build.

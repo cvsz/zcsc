@@ -1,6 +1,6 @@
 # Security Policy
 
-Security is part of the default delivery baseline for repositories created from this template.
+This policy covers the ZeaZDev-CamfrogStatusChanger repository and its Windows desktop application.
 
 ## Reporting a vulnerability
 
@@ -12,11 +12,11 @@ Include affected versions/commits, reproduction details, impact, prerequisites, 
 
 ## Supported versions
 
-Each generated project must replace this section with its real support policy before its first production release.
+No stable application release is declared. The current application version is recorded in `version.py`; assess reports against the current source and the exact Camfrog build involved. Pre-release binaries do not carry a production support guarantee.
 
 ## Repository security baseline
 
-Generated repositories should verify, not merely document:
+Repository administrators should verify, not merely document:
 
 - protected default branch
 - pull-request review before merge
@@ -36,16 +36,16 @@ The helper `scripts/github_admin.py` can configure and verify the baseline when 
 
 - Keep dependencies patched and review security alerts.
 - Keep CodeQL and dependency-review workflows enabled where supported.
-- Pin Actions according to supply-chain policy; this template pins baseline Actions to immutable SHAs.
+- Pin Actions according to supply-chain policy; current workflows use immutable action revisions where supported.
 - Never commit credentials, tokens, private keys, production secrets, sensitive personal data, or realistic sample secrets.
 - Validate untrusted input and enforce authorization at trust boundaries.
 - Prefer fail-closed behavior for security-sensitive paths.
-- Preserve tenant/data isolation where applicable.
+- Preserve user/profile data isolation where applicable.
 - Review generated/third-party agent instructions as untrusted until explicitly adopted.
 - Do not weaken security gates merely to obtain a passing build.
 
 ## Incident handling
 
-Generated projects should document detection, containment, credential handling, remediation, recovery, validation, disclosure, and rollback appropriate to their risk profile.
+Security incidents should be handled with detection, containment, credential handling, remediation, recovery, validation, disclosure, and rollback appropriate to their risk profile.
 
 Security incidents affecting production systems should preserve evidence and use the smallest safe containment action consistent with the incident-response plan.

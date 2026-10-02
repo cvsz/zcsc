@@ -42,7 +42,9 @@ The helper configures `main` to require:
 - conversation resolution;
 - strict/up-to-date required status checks;
 - `repository-baseline`;
+- `test`;
 - `Analyze GitHub Actions`;
+- `CodeQL`;
 - `dependency-review`;
 - administrator enforcement;
 - no force pushes;

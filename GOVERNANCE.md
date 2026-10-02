@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document defines the default governance model for projects created from this template. Generated projects must replace generic ownership and decision guidance with their real maintainers, escalation paths, and operating model.
+This document defines the governance model for this repository. Maintainers should keep ownership, escalation paths, and operating procedures current as the root application and shared engineering tools evolve.
 
 ## Roles
 
@@ -16,10 +16,10 @@ This document defines the default governance model for projects created from thi
 Normal changes flow through pull requests with required checks and review. Repository administration controls should be verified with:
 
 ```bash
-python3 scripts/github_admin.py --repo OWNER/REPO --verify
+python3 scripts/github_admin.py --verify
 ```
 
-A generated repository should not rely on documentation alone to prove that its branch protections or security settings are effective.
+This repository should not rely on documentation alone to prove that its branch protections or security settings are effective.
 
 ## Decisions
 

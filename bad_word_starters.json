@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "categories": {
+    "direct_profanity_anatomy": {
+      "title_en": "Direct profanity and anatomy",
+      "title_th": "คำหยาบและคำเกี่ยวกับอวัยวะ",
+      "terms": [
+        "เหี้ย", "เชี่ย", "ควย", "เย็ด", "ส้นตีน", "ห่า", "สัส", "สัตว์", "ดอกทอง", "กะหรี่", "หน้าหมา", "สันดาน", "อีดอก", "อีควาย", "อีเหี้ย", "อ้ายกะหรี่", "แรด", "ตอแหล", "เงี่ยน", "หี", "แตด", "เยส", "เยด", "หมอฮี", "หัวควย", "เย็ดแม่", "เย็ดเอ๊ย", "ควยเอ๊ย", "ส้นตีนเอ๊ย",
+        "fuck", "fucking", "shit", "bitch", "cunt", "bastard", "dick", "pussy", "asshole", "cock", "motherfucker", "whore", "slut", "bullshit", "prick", "twat", "wanker", "piss", "boobs", "tit", "tits", "penis", "vagina", "dildo"
+      ]
+    },
+    "bypass_phonetics_leet": {
+      "title_en": "Bypass, phonetic and leet variants",
+      "title_th": "คำเลี่ยง คำเลียนเสียง และตัวอักษรแทน",
+      "terms": [
+        "ค.ว.ย", "ค-ว-ย", "ค*ย", "ส*ส", "เ*็ด", "เหรี้ย", "สั้ส", "ควยย", "ควายย", "หีโฆษก", "ค_ว_ย", "ส_ั_ส", "สลัด", "ฟักทอง",
+        "kuy", "kwai", "yed", "fck", "f*ck", "sh*t", "b*tch", "d*ck", "a$$hole", "b1tch", "phuck", "fuk", "fxck", "sh1t", "b!tch", "c*nt", "p*ssy", "d!ck", "a55hole"
+      ]
+    },
+    "hate_speech_discrimination": {
+      "title_en": "Hate speech and discrimination",
+      "title_th": "คำเหยียดและการเลือกปฏิบัติ",
+      "terms": [
+        "สลิ่ม", "สามกีบ", "ควายแดง", "สลิ่มสลัด", "ลาว", "บ้านนอก", "ไอ้พวกตระกูลต่ำ", "ถ่อย", "แมงดา", "กะหรี่ไทย",
+        "nigger", "nigga", "faggot", "retard", "chink", "spic", "kike", "dyke", "tranny", "cripple"
+      ]
+    },
+    "spam_gambling_substances": {
+      "title_en": "Spam, gambling and substances",
+      "title_th": "สแปม การพนัน และสารเสพติด",
+      "terms": [
+        "เว็บพนัน", "แทงบอล", "บาคาร่า", "สล็อต", "pgslot", "เว็บตรง", "แจกเครดิตฟรี", "ฝากถอนไม่มีขั้นต่ำ", "ยาบ้า", "เฮโรอีน", "ยาไอซ์", "กัญชาสด", "เคตามีน", "กู้เงินด่วน", "รับปั่นสล็อต",
+        "casino", "slot", "betting", "gambling", "heroin", "meth", "cocaine", "weed"
+      ]
+    }
+  },
+  "obfuscation_patterns": [
+    {"term": "ควย", "pattern": "ค[.\\-_ *\\s]*ว[.\\-_ *\\s]*ย"},
+    {"term": "สัส", "pattern": "ส[.\\-_ *\\s]*ั[.\\-_ *\\s]*ส"},
+    {"term": "เย็ด", "pattern": "ย[.\\-_ *\\s]*เ[.\\-_ *\\s]*็[.\\-_ *\\s]*ด"},
+    {"term": "เหี้ย", "pattern": "เ[.\\-_ *\\s]*ี[.\\-_ *\\s]*้[.\\-_ *\\s]*ย"},
+    {"term": "fuck", "pattern": "f+[u*@a\\s]+c*k+"},
+    {"term": "shit", "pattern": "s+[h*!i\\s]+t+"},
+    {"term": "bitch", "pattern": "b+[i*!1\\s]+t+c+h+"},
+    {"term": "dick", "pattern": "d+[i*!1\\s]+c+k+"}
+  ],
+  "allowlist": ["ฟักทอง", "กล้วย", "ควัน", "สกัด", "assassin", "class"]
+}

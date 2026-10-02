@@ -1,9 +1,9 @@
 version: "0.1.0"
 
 author:
-  name: ZEAZDEV COMPANY LIMITED
+  name: OWNER
 
-repository: https://github.com/cvsz/ztemplate
+repository: https://github.com/cvsz/zcsc
 license: MIT
 
 capabilities:

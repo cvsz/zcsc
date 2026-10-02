@@ -31,23 +31,18 @@ Projects should aim to be:
 
 Security/quality failures should be fixed rather than bypassed. CI, infrastructure, documentation, recovery, repository controls, and operational readiness are treated as part of product engineering.
 
-## ztemplate direction
+## Repository direction
 
-The template is intended to give new repositories disciplined foundations from the first commit:
+This repository is the **ZeaZDev-CamfrogStatusChanger** project. Its Windows desktop product is named Camfrog Status Changer; application code lives at the repository root alongside shared engineering tools:
 
-- governance and ownership
-- security policy
-- protected change flow
-- CI/security automation
-- dependency maintenance
-- release/recovery guidance
-- architecture documentation
-- AI-agent operating contracts
-- evidence-state semantics
+- Windows desktop status and room-management tooling for Camfrog
+- repository governance, security policy, and protected change flow
+- CI/security automation and dependency maintenance
+- release/recovery guidance and local repository validation
+- AI-agent operating contracts, playbooks, and evidence-state semantics
 - repository administration verification
-- safe rollout guidance for existing projects
 
-The template itself does not claim that generated applications are production ready. Application readiness remains evidence-based and stack/environment specific.
+Application readiness remains evidence-based and Windows/Camfrog-version specific. Repository scaffolding, CI, and documentation do not prove server-visible behavior or production readiness.
 
 ## GitHub
 
@@ -56,4 +51,4 @@ The template itself does not claim that generated applications are production re
 
 ---
 
-This profile intentionally contains public-safe technical/project information only. Credentials, private account data, personal secrets, and sensitive identity information must not be added to a public repository template.
+This profile contains public-safe technical/project information only. Credentials, private account data, personal secrets, and sensitive identity information must not be added to this public repository.

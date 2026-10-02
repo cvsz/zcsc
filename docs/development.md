@@ -1,18 +1,30 @@
 # Development
 
+ZeaZDev-CamfrogStatusChanger is the project; Camfrog Status Changer is its Windows desktop application. The checkout also retains repository validation and administration tools.
+
 ## Local setup
 
-1. Clone the repository.
-2. Copy `.env.example` to an ignored `.env` and populate local-only values.
-3. Install the selected runtime and dependencies.
-4. Replace placeholder Makefile targets with real project commands.
-5. Run:
+1. Use Windows 10/11 with Python 3.12 and clone the repository.
+2. Install the application and development dependencies:
 
    ```bash
-   make validate-template
+   py -m pip install -r requirements.txt pytest pyinstaller==6.22.3
    ```
 
-6. Run project-specific formatting, linting, type checks, tests, build, and security checks before opening a pull request.
+3. Run `run_dev.bat` to start the app, or use the repository tasks below.
+
+Build outputs are ignored and are not part of a fresh source checkout. The builder isolates PyInstaller work under `build/CamfrogStatusChanger-work`; it must not clean adjacent Camfrog analysis files in the `build/` tree.
+
+## Repository tasks
+
+```bash
+make validate-repo
+make test
+make compile
+make build
+```
+
+`make build` is Windows-only. On other hosts, use the Windows GitHub Actions workflow to build the executable.
 
 ## Quality expectations
 
@@ -33,7 +45,7 @@ Before merge, capture exact-head evidence for the checks that apply to the chang
 For repository administration changes, use the read-back verifier:
 
 ```bash
-python3 scripts/github_admin.py --repo OWNER/REPO --verify
+python3 scripts/github_admin.py --verify
 ```
 
 ## Documentation

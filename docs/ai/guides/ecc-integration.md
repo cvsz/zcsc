@@ -1,12 +1,12 @@
 # ECC Integration
 
-This template includes a root `ecc-install.json` as an **OSS ECC CLI install configuration** using install-config schema version 1.
+This repository includes a root `ecc-install.json` as an **OSS ECC CLI install configuration** using install-config schema version 1.
 
 ## Why the OSS CLI config is minimal
 
-The template intentionally does not select a `target`, `profile`, or module set. Those choices are project- and harness-specific and should be made after a repository is created from this template.
+The configuration intentionally does not select a `target`, `profile`, or module set. Choose those settings according to the development harness and individual contributor's needs.
 
-The config therefore establishes a supported ECC CLI configuration surface without forcing Claude, Codex, OpenCode, Cursor, hooks, language packs, or other runtime choices onto every generated repository.
+The config establishes an ECC CLI configuration surface without selecting Claude, Codex, OpenCode, Cursor, hooks, language packs, or another runtime for every contributor.
 
 ## OSS CLI upstream contract
 
@@ -28,7 +28,7 @@ ECC GitHub App analysis may generate repository-specific identity, harness, inst
 
 ## Project setup
 
-After creating a repository from this template, review ECC's current setup documentation and select the smallest appropriate target/profile. Do not copy a full profile merely to satisfy an audit metric.
+Before installing ECC components, review its setup documentation and select the smallest appropriate target/profile. Do not copy a full profile merely to satisfy an audit metric.
 
 A current guided setup may be started with:
 
@@ -43,4 +43,4 @@ Review the planned destinations and mutations before applying them.
 - Do not silently change the pinned schema reference.
 - Re-verify upstream schema and installer behavior before updating the pin.
 - Keep OSS ECC runtime configuration, ECC GitHub App-generated artifacts, and this repository's readiness claims as separate evidence surfaces.
-- Installing ECC components does not make a generated project production ready.
+- Installing ECC components does not make this application production ready.

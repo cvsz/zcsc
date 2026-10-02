@@ -1,51 +1,31 @@
 # Roadmap
 
-This template stays language-agnostic while providing production-grade **repository foundations**.
+ZeaZDev-CamfrogStatusChanger is the project name; Camfrog Status Changer is its Windows desktop application, maintained at the repository root. The repo also retains shared engineering tools.
 
-## Foundation
+## Application baseline
 
-- [x] Repository documentation baseline
-- [x] Security and contribution policies
-- [x] Issue and pull request templates
-- [x] CI and security workflow baseline
-- [x] Dependabot configuration
-- [x] Release guidance and release-note configuration
-- [x] Docker and task-runner placeholders
-- [x] Architecture/development/release documentation structure
-- [x] Immutable SHA pinning for baseline GitHub Actions
-- [x] Repository structure and local Markdown-link validation
-- [x] GitHub administration apply/verify automation
-- [x] Protected-default-branch policy baseline
-- [x] ZEAZ cross-agent execution framework
-- [x] Reusable AI guides/playbooks/prompts
-- [x] Discovery-first skills/component/plugin catalog scaffold
-- [x] Safe rollout guidance for existing repositories
+- [x] Manual status entry with a separate stage-only path
+- [x] TH/EN standard status catalog and editable presets
+- [x] Sequential/random one-message-per-tick rotation and marquee frames
+- [x] Optional auto reply, room phrase notifications, room commands, and bad-word moderation
+- [x] Read-only Camfrog profile/history discovery and diagnostics
+- [x] Windows executable workflow with SHA-256 manifest artifact
+- [x] Root-level reverse-engineering and multi-account isolation notes
 
-## Reusable first-project startup
+`[x]` means implementation exists in source. It does not prove Camfrog server acceptance or live room permissions.
 
-- [x] Identity bootstrap with dry-run, explicit apply, and idempotence
-- [x] Safe ownership/security issue-link replacement
-- [x] Optional project profiles and adoption guide
-- [x] Bootstrap tests in baseline CI
-- [x] Repository administration verification helper
-- [ ] Validate production-capable per-stack adapters in generated repositories
-- [ ] Add end-to-end fixture verification for each adopted stack
+## Remaining application gates
 
-## Future optional modules
+- [ ] Verify status publication and background behavior on supported Windows/Camfrog builds; see [production readiness](PRODUCTION-READINESS.md).
+- [ ] Keep Text Over Video inspection read-only until its control selectors and persisted value formats are verified.
+- [ ] Review the proposed UAB integration's pinned source, license, and loopback API behavior before any installer implementation.
+- [ ] Keep any room automation disabled until its exact room, UIA selectors, command syntax, and authorization are verified by the operator.
 
-- [ ] Language-specific starter packs
-- [ ] Infrastructure-as-code starter packs
-- [ ] Kubernetes and Helm starter packs
-- [ ] SBOM/provenance workflows
-- [ ] Release signing and artifact attestation
-- [ ] OpenSSF Scorecard workflow
-- [ ] Container vulnerability scanning
-- [ ] Documentation site starter
-- [ ] Monorepo profile
-- [ ] Service/API profile
-- [ ] Web application profile
-- [ ] Library/SDK profile
-- [ ] Machine-readable skill catalog/version index when real catalog scale justifies it
-- [ ] Benchmark/reference-set framework when there are real scenarios to measure
+## Repository foundation
 
-Generated repositories should adopt only modules appropriate to their stack, threat model, operating environment, and compliance needs.
+- [x] Security, contribution, governance, and release policies
+- [x] Least-privilege baseline CI and security workflows
+- [x] Local application-structure and documentation-link validation
+- [x] GitHub administration verification helper
+- [x] ZEAZ cross-agent execution framework and reusable AI playbooks
+- [x] Skill, component, and plugin catalogs
