@@ -1996,7 +1996,7 @@ class AppUI(ctk.CTk):
         result = self.controller.set_status(value)
         self.after(0, lambda: self._show_result(result))
 
-    def _apply_status_background(self, value):
+    def _apply_status_background(self, value, *, cancelled=None):
         # Rotation executes on its own thread. Read the synced config snapshot
         # here instead of calling Tk variables outside the UI thread.
         styles = dict(self.config_data.get("status", {}).get("styles", {}))
@@ -2019,7 +2019,10 @@ class AppUI(ctk.CTk):
             )
             if marquee_enabled:
                 self._marquee_offset = next_offset
-        result = self.controller.set_status(value)
+        if cancelled is None:
+            result = self.controller.set_status(value)
+        else:
+            result = self.controller.set_status(value, cancelled=cancelled)
         if not getattr(self, "_exiting", False):
             try:
                 self.after(0, lambda: self.state_label.configure(text=result.message if result.ok else f"ERROR: {result.message}"))

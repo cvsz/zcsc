@@ -76,22 +76,44 @@ class CamfrogController:
         else:
             time.sleep(seconds)
 
+    @staticmethod
+    def _is_cancelled(cancelled) -> bool:
+        return bool(cancelled and cancelled())
+
+    def _acquire_apply_lock(self, cancelled=None) -> bool:
+        """Acquire the send lock while allowing a stopped rotation to exit."""
+        if cancelled is None:
+            self._apply_lock.acquire()
+            return True
+        while not self._is_cancelled(cancelled):
+            if self._apply_lock.acquire(timeout=0.05):
+                if self._is_cancelled(cancelled):
+                    self._apply_lock.release()
+                    return False
+                return True
+        return False
+
     def client_processes(self):
         executable = str(self.config.get("camfrog", {}).get("executable", "")).strip()
         return find_processes(executable_path=executable or None)
 
-    def _wait_for_send_slot(self) -> None:
+    def _wait_for_send_slot(self, cancelled=None) -> bool:
         """Enforce spacing between Camfrog send attempts instead of dropping early ones."""
         minimum = max(1, int(self.config.get("advanced", {}).get("minimum_interval_seconds", 5)))
         while self._last_send_monotonic:
+            if self._is_cancelled(cancelled):
+                return False
             remaining = minimum - (self._monotonic() - self._last_send_monotonic)
             if remaining <= 0:
                 break
             log.info("Waiting %.2fs before the next Camfrog status send", remaining)
-            self._sleep(remaining)
+            self._sleep(min(remaining, 0.05) if cancelled is not None else remaining)
+        if self._is_cancelled(cancelled):
+            return False
         # Reserve this slot as well as recording the actual dispatch below. If
         # preparation later fails, retrying still observes the send guard.
         self._last_send_monotonic = self._monotonic()
+        return True
 
     def _record_send_time(self) -> None:
         """Record the dispatch time so the next request spaces actual sends."""
@@ -672,31 +694,31 @@ class CamfrogController:
         except Exception:
             pass
 
-        mouse.click(button="left", coords=(x, y))
-        time.sleep(0.15)
-        send_keys("^a{BACKSPACE}")
-        pyperclip.copy(value)
-        send_keys("^v")
-        ready, observed, reason = self._wait_for_foreground_status(win, editor, value)
-        if not ready:
-            raise RuntimeError(
-                f"Coordinate fallback could not verify Camfrog foreground and status text; Enter was not sent: {reason}"
-            )
-        ready, observed, reason = self._foreground_status_snapshot(win, editor, value)
-        if not ready:
-            raise RuntimeError(
-                f"Coordinate fallback target changed before commit; Enter was not sent: {reason}"
-            )
-        send_keys("{ENTER}")
+        try:
+            mouse.click(button="left", coords=(x, y))
+            time.sleep(0.15)
+            send_keys("^a{BACKSPACE}")
+            pyperclip.copy(value)
+            send_keys("^v")
+            ready, observed, reason = self._wait_for_foreground_status(win, editor, value)
+            if not ready:
+                raise RuntimeError(
+                    f"Coordinate fallback could not verify Camfrog foreground and status text; Enter was not sent: {reason}"
+                )
+            ready, observed, reason = self._foreground_status_snapshot(win, editor, value)
+            if not ready:
+                raise RuntimeError(
+                    f"Coordinate fallback target changed before commit; Enter was not sent: {reason}"
+                )
+            send_keys("{ENTER}")
+        finally:
+            if old_clipboard is not None:
+                try:
+                    pyperclip.copy(old_clipboard)
+                except Exception:
+                    log.warning("Could not restore the clipboard after coordinate fallback")
 
-        if old_clipboard is not None:
-            try:
-                time.sleep(0.1)
-                pyperclip.copy(old_clipboard)
-            except Exception:
-                pass
-
-    def set_status(self, value: str) -> ChangeResult:
+    def set_status(self, value: str, *, cancelled=None) -> ChangeResult:
         value = value.replace("\x00", "")
         # Preserve intentional CRLF between line 1/2; only reject all-whitespace payloads.
         if not value.strip():
@@ -707,12 +729,22 @@ class CamfrogController:
 
         # Apply and rotation requests are serialized instead of discarding the
         # later request when both reach the sender in the same interval.
-        self._apply_lock.acquire()
+        if not self._acquire_apply_lock(cancelled):
+            return ChangeResult(False, "Status change cancelled before sending", previous_value=value)
         try:
+            if self._is_cancelled(cancelled):
+                return ChangeResult(False, "Status change cancelled before sending", previous_value=value)
             running = self.ensure_running()
             if not running.ok:
                 return running
-            self._wait_for_send_slot()
+            if self._is_cancelled(cancelled):
+                return ChangeResult(False, "Status change cancelled before sending", previous_value=value)
+            if cancelled is None:
+                self._wait_for_send_slot()
+            elif not self._wait_for_send_slot(cancelled=cancelled):
+                return ChangeResult(False, "Status change cancelled before sending", previous_value=value)
+            if self._is_cancelled(cancelled):
+                return ChangeResult(False, "Status change cancelled before sending", previous_value=value)
 
             try:
                 win = self.find_window()
@@ -810,6 +842,8 @@ class CamfrogController:
                                     previous,
                                     value,
                                 )
+                            if self._is_cancelled(cancelled):
+                                return ChangeResult(False, "Status change cancelled before sending", previous, value)
                             self._record_send_time()
                             verified_editor.type_keys("{ENTER}")
                             time.sleep(STATUS_COMMIT_SETTLE_SECONDS)
@@ -833,6 +867,8 @@ class CamfrogController:
 
                 if self.config.get("target", {}).get("background_enabled", True):
                     try:
+                        if self._is_cancelled(cancelled):
+                            return ChangeResult(False, "Status change cancelled before sending", previous, value)
                         hwnd = int(win.handle)
                         target = self.config.get("target", {})
                         result = set_status_background(
@@ -856,6 +892,8 @@ class CamfrogController:
                 advanced = self.config.get("advanced", {})
                 if advanced.get("fallback_enabled", False):
                     try:
+                        if self._is_cancelled(cancelled):
+                            return ChangeResult(False, "Status change cancelled before sending", previous, value)
                         self._coordinate_fallback(win, value)
                         self._record_send_time()
                         return ChangeResult(True, "Status changed using foreground fallback (not background-verified)", previous, value)

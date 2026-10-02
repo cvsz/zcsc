@@ -43,6 +43,13 @@
 - Add explicit config migrations through schema 3 for the history rotation source and one-character marquee setting. Migrate schema 1 message rows before merging defaults so saved `editor_lines` are preserved; existing custom marquee intervals remain unchanged.
 - Regression tests reproduced the unidentified-control commit and missing config-version migration before the fixes. Full local validation passed 298 pytest tests, `compileall`, `scripts/validate_repo.py`, `pip-audit`, and `git diff --check`; exact-head GitHub checks remain pending.
 
+### Fixed — P4 reviewer follow-up
+
+- Load `win32con` in the native combo notification path so its `WM_COMMAND` notifications do not fail with `NameError`.
+- Restore the prior clipboard in a `finally` block when coordinate status entry aborts before Enter.
+- Let rotation pass a cancellation signal through the dashboard to `CamfrogController`; a stopped rotation now abandons a status still waiting for the apply lock before starting or sending it. Legacy one-argument callbacks remain supported.
+- Add three regressions that failed against the prior code. Full local validation passed 301 pytest tests, `compileall`, `scripts/validate_repo.py`, and `pip-audit`; exact-head GitHub and Windows build checks remain pending. No live Camfrog action was performed.
+
 ### Fixed — P5 registry history dump
 
 - Create the registry dump directory when needed and return a clear nonzero result for storage/scan errors or when no registry keys were scanned.

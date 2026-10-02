@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import random
 import threading
 import time
@@ -11,9 +12,13 @@ from automation.marquee import marquee_delay_seconds
 
 
 class RotationWorker:
-    def __init__(self, apply_status: Callable[[str], None], *, clock=None):
+    def __init__(self, apply_status: Callable[..., None], *, clock=None):
         self.apply_status = apply_status
         self.clock = clock
+        try:
+            self._accepts_cancellation = "cancelled" in inspect.signature(apply_status).parameters
+        except (TypeError, ValueError):
+            self._accepts_cancellation = False
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._idx = 0
@@ -62,6 +67,13 @@ class RotationWorker:
         frame_interval = max(1, int(marquee_frame_interval_seconds))
         mode = mode if mode in {"sequential", "random"} else "sequential"
 
+        def apply(value: str) -> None:
+            if self._accepts_cancellation:
+                cancelled = lambda: generation != self._generation or self._stop.is_set()
+                self.apply_status(value, cancelled=cancelled)
+            else:
+                self.apply_status(value)
+
         def run() -> None:
             random_queue: list[str] = []
             previous_random: str | None = None
@@ -83,7 +95,7 @@ class RotationWorker:
                         value = snapshot[self._idx % len(snapshot)]
                         self._idx += 1
                     try:
-                        self.apply_status(value)
+                        apply(value)
                     except Exception:
                         # Rotation must not die permanently because one apply failed.
                         pass
@@ -109,7 +121,7 @@ class RotationWorker:
                             if deadline - self._monotonic() <= 0:
                                 break
                             try:
-                                self.apply_status(value)
+                                apply(value)
                             except Exception:
                                 pass
                             frame_index += 1

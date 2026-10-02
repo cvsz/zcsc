@@ -235,6 +235,7 @@ def _notify_combo_parent(top_hwnd: int, combo_hwnd: int) -> None:
     on a child panel/dialog. We notify immediate parent first and then bubble
     upward, stopping at the top-level window.
     """
+    import win32con
     import win32gui
 
     control_id = int(win32gui.GetDlgCtrlID(combo_hwnd))
