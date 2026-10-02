@@ -49,7 +49,7 @@
 - Restore the prior clipboard in a `finally` block when coordinate status entry aborts before Enter.
 - Let rotation pass a cancellation signal through the dashboard to `CamfrogController`; a stopped rotation now abandons a status still waiting for the apply lock before starting or sending it. Legacy one-argument callbacks remain supported.
 - Keep cancellation results' `previous_value` empty until a previous Camfrog status has actually been read, while retaining the requested text in `new_value`.
-- Add four regressions that failed against the prior code. Full local validation passed 302 pytest tests, `compileall`, `scripts/validate_repo.py`, and `pip-audit`; exact-head GitHub and Windows build checks remain pending. No live Camfrog action was performed.
+- Add four regressions that failed against the prior code. Full local validation passed 302 pytest tests, `compileall`, `scripts/validate_repo.py`, and `pip-audit`. The exact implementation head passed all required GitHub checks and the Windows x64 build workflow; its RC11 EXE is 21,107,220 bytes with SHA-256 `bd72a627db812816df64d0e2446a62039951bacbb646f5d391e13b901d4c8219`. The PR was approved and remains open; no live Camfrog action was performed.
 
 ### Fixed — P5 registry history dump
 
