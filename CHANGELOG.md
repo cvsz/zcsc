@@ -6,6 +6,7 @@
 
 - Reject generic UIA ComboBoxes as Camfrog status targets unless an exact automation ID or observed status value identifies them. Refuse background and coordinate fallbacks when UIA exposes an unverified generic target.
 - Keep the dashboard visible when the tray fails to start, restore it if the tray thread later stops, and exit on close rather than leaving an unreachable hidden process.
+- Allow the first auto-reply, moderation alert, or room-event alert immediately after startup; begin cooldown checks only after a prior action has a timestamp.
 - Isolate Windows platform test doubles to each Camfrog module instead of mutating shared `os.name`, preserving Python 3.12/POSIX test behavior.
 - Remove project-template bootstrap and inventory files so this checkout consistently documents the Camfrog application at its root.
 - Default Make targets to `python3` on POSIX and `py -3` on Windows; document that executable builds are temporary workflow artifacts, not checked-in files.

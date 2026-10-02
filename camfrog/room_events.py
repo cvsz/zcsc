@@ -94,7 +94,8 @@ class CamfrogRoomEventMonitor:
                         if term.casefold() not in line_folded:
                             continue
                         throttle_key = (handle, room_title, term.casefold())
-                        if now - self._last_alert.get(throttle_key, 0.0) < cooldown:
+                        last_alert = self._last_alert.get(throttle_key)
+                        if last_alert is not None and now - last_alert < cooldown:
                             break
                         self._last_alert[throttle_key] = now
                         events.append(RoomEventMatch(room_title, term))

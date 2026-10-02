@@ -61,6 +61,7 @@ def test_room_event_monitor_uses_baseline_and_matches_only_new_lines(monkeypatch
     window = FakeWindow(history)
     monitor = CamfrogRoomEventMonitor(FakeController(window))
     monkeypatch.setattr(room_events, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(room_events, "time", SimpleNamespace(monotonic=lambda: 1.0))
     monkeypatch.setattr(room_events, "_history_lines", lambda _control: lines[0])
 
     events, state = monitor.poll_once(config())

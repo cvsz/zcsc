@@ -278,6 +278,7 @@ def test_bad_word_monitor_only_reports_new_messages_and_skips_own_account(monkey
     monitor = CamfrogBadWordMonitor(FakeController(window))
     config = _moderation_config()
     monkeypatch.setattr(bad_word_moderation, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(bad_word_moderation, "time", SimpleNamespace(monotonic=lambda: 1.0))
 
     _set_history(window, "Alice: old badword")
     matches, state = monitor.poll_once(config)

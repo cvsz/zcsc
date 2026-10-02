@@ -181,7 +181,8 @@ class CamfrogBadWordMonitor:
                     if term is None:
                         continue
                     throttle_key = (int(window.handle), sender.casefold(), term.casefold())
-                    if now - self._last_alert.get(throttle_key, 0.0) < cooldown:
+                    last_alert = self._last_alert.get(throttle_key)
+                    if last_alert is not None and now - last_alert < cooldown:
                         continue
                     self._last_alert[throttle_key] = now
                     matches.append(BadWordMatch(room_title, sender, body, term))

@@ -286,7 +286,8 @@ class CamfrogAutoResponder:
                 if sender.casefold() == username.casefold() or body.casefold() == reply.casefold():
                     continue
                 throttle_key = (kind, int(window.handle), sender.casefold())
-                if now - self._last_reply.get(throttle_key, 0.0) < cooldown:
+                last_reply = self._last_reply.get(throttle_key)
+                if last_reply is not None and now - last_reply < cooldown:
                     continue
                 if self._send_reply(window, selectors, reply, cancelled=cancelled):
                     self._last_reply[throttle_key] = now
