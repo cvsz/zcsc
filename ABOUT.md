@@ -31,23 +31,18 @@ Projects should aim to be:
 
 Security/quality failures should be fixed rather than bypassed. CI, infrastructure, documentation, recovery, repository controls, and operational readiness are treated as part of product engineering.
 
-## ztemplate direction
+## Repository direction
 
-The template is intended to give new repositories disciplined foundations from the first commit:
+This repository keeps the Camfrog Status Changer application at the root alongside the reusable zcsc engineering foundation:
 
-- governance and ownership
-- security policy
-- protected change flow
-- CI/security automation
-- dependency maintenance
-- release/recovery guidance
-- architecture documentation
-- AI-agent operating contracts
-- evidence-state semantics
-- repository administration verification
-- safe rollout guidance for existing projects
+- Windows desktop status and room-management tooling for Camfrog
+- repository governance, security policy, and protected change flow
+- CI/security automation and dependency maintenance
+- release/recovery guidance and local repository validation
+- AI-agent operating contracts, playbooks, and evidence-state semantics
+- repository administration verification and safe rollout guidance
 
-The template itself does not claim that generated applications are production ready. Application readiness remains evidence-based and stack/environment specific.
+Application readiness remains evidence-based and Windows/Camfrog-version specific. Repository scaffolding, CI, and documentation do not prove server-visible behavior or production readiness.
 
 ## GitHub
 

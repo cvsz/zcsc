@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document defines the default governance model for projects created from this template. Generated projects must replace generic ownership and decision guidance with their real maintainers, escalation paths, and operating model.
+This document defines the governance model for this repository. Maintainers should keep ownership, escalation paths, and operating procedures current as the root application and shared engineering tools evolve.
 
 ## Roles
 

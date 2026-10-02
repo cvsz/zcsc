@@ -12,7 +12,7 @@ Include affected versions/commits, reproduction details, impact, prerequisites, 
 
 ## Supported versions
 
-Each generated project must replace this section with its real support policy before its first production release.
+No stable application release is declared. The current application version is recorded in `version.py`; assess reports against the current source and the exact Camfrog build involved. Pre-release binaries do not carry a production support guarantee.
 
 ## Repository security baseline
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate ztemplate structure and local Markdown links."""
+"""Validate required zcsc project files and local Markdown links."""
 
 from __future__ import annotations
 
@@ -12,6 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_PATHS = (
     "README.md",
+    "app.py",
+    "requirements.txt",
+    "camfrog/controller.py",
+    "ui/dashboard.py",
     "ABOUT.md",
     "AGENTS.md",
     "CLAUDE.md",

@@ -1,55 +1,36 @@
 # Architecture
 
-## Purpose
+Camfrog Status Changer is a Windows desktop application. Its source, tests, build assets, and application documentation live at the repository root.
 
-`ztemplate` is a language-agnostic repository foundation rather than an application runtime.
+## Application layers
 
-Its architecture is intentionally layered so generated projects can replace application-specific pieces without weakening repository governance.
+### Dashboard and entry point
 
-## Layers
+- `app.py` initializes the desktop app.
+- `ui/dashboard.py` provides the feature-oriented UI and settings controls.
+- `automation/` manages status rotation, scheduling, and marquee frames.
 
-### Repository governance
+### Camfrog integration
 
-Root policy documents define ownership, contribution, security, evidence, and release expectations:
+- `camfrog/controller.py` coordinates status updates and guardrails.
+- `camfrog/detector.py` and the UIA/Win32 helpers target the running Camfrog desktop client.
+- `camfrog/registry_status.py` and related readers provide read-only profile/history discovery.
+- `camfrog/native_profile.py` uses version-gated class/fingerprint evidence; diagnostic RVAs are not invoked.
 
-- `AGENTS.md`
-- `ZEAZ-INTRODUCTION.md`
-- `GOVERNANCE.md`
-- `SECURITY.md`
-- `CONTRIBUTING.md`
+The integration is desktop-UI based. A verified local text write and Enter dispatch do not independently prove server publication. Room commands, auto reply, and bad-word actions require explicit configuration and remain disabled by default.
 
-### GitHub control plane
+### Local state and system integration
 
-`.github/` provides CI/security/community baselines.
+- `system/config_store.py` stores application configuration under the current user's application-data directory and handles recovery from malformed files.
+- `system/logging_setup.py`, `system/tray.py`, `system/startup.py`, and `system/single_instance.py` handle logs and Windows desktop lifecycle behavior.
+- `app.ico` and `bad_word_starters.json` are packaged as runtime resources by the Windows build.
 
-`scripts/github_admin.py` handles repository settings that cannot be enforced by committed files alone and verifies effective provider state after mutation.
+## Repository tooling
 
-### Validation
+The root also retains zcsc governance, CI, repository validation, GitHub administration, and AI-agent guidance. These tools support the application but are not part of the Camfrog runtime. See [development](development.md), [release](release.md), and the root [agent contract](../AGENTS.md).
 
-`scripts/validate_repo.py` checks required template structure and local Markdown links.
+## Build and evidence boundary
 
-`tests/` validates bootstrap behavior.
+The Windows workflow runs the application tests and compile check, builds a one-file executable, generates a SHA-256 manifest, and uploads a temporary workflow artifact. Local ignored `build/` and `dist/` directories may contain historical Camfrog and application artifacts; build scripts must use the app-specific work directory and preserve unrelated files.
 
-Application-specific lint/test/build/security validation must be added by generated projects.
-
-### Project initialization
-
-`scripts/bootstrap.py` changes project identity/ownership routing only. It does not create application architecture or deploy infrastructure.
-
-### AI/agent execution
-
-`docs/ai/`, `skills/`, `components.d/`, and `plugins.d/` provide reusable agent execution guidance and discovery without making application-runtime assumptions.
-
-### Application placeholders
-
-The root Dockerfile and application Makefile targets are intentionally non-production placeholders. Generated projects replace them with stack-specific implementations.
-
-## Existing-repository adoption
-
-The architecture is composable. Established repositories should use [repository rollout](repository-rollout.md) and port only compatible missing layers rather than copying the tree wholesale.
-
-## Production boundary
-
-Repository-foundation readiness and application production readiness are separate claims.
-
-The template can verify repository controls, documentation structure, and baseline automation. A generated application must independently verify runtime architecture, deployment, data, recovery, observability, capacity, security, and incident-response gates that apply to it.
+Passing repository or application checks does not prove server-visible status changes, room permissions, signing, antivirus reputation, or production readiness. See [production readiness](../PRODUCTION-READINESS.md).

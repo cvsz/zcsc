@@ -1,18 +1,30 @@
 # Development
 
+Camfrog Status Changer is a Windows desktop application. The checkout also retains repository validation and administration tools.
+
 ## Local setup
 
-1. Clone the repository.
-2. Copy `.env.example` to an ignored `.env` and populate local-only values.
-3. Install the selected runtime and dependencies.
-4. Replace placeholder Makefile targets with real project commands.
-5. Run:
+1. Use Windows 10/11 with Python 3.12 and clone the repository.
+2. Install the application and development dependencies:
 
    ```bash
-   make validate-template
+   py -m pip install -r requirements.txt pytest pyinstaller==6.22.3
    ```
 
-6. Run project-specific formatting, linting, type checks, tests, build, and security checks before opening a pull request.
+3. Run `run_dev.bat` to start the app, or use the repository tasks below.
+
+The checked-out `build/` and `dist/` directories contain ignored historical artifacts, including Camfrog analysis samples. Build scripts must write only to the Camfrog Status Changer work directory and must never clean the entire `build/` tree.
+
+## Repository tasks
+
+```bash
+make validate-repo
+make test
+make compile
+make build
+```
+
+`make build` is Windows-only. On other hosts, use the Windows GitHub Actions workflow to build the executable.
 
 ## Quality expectations
 

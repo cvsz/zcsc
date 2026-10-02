@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Repository layout
+
+- Promoted the Camfrog Status Changer application, tests, documentation, Windows build assets, and preserved local build artifacts from the former app subdirectory to the repository root.
+- Consolidated its Windows test/build workflow at the root and retained the repository baseline workflow.
+- Isolated PyInstaller work output under `build/CamfrogStatusChanger-work` so build scripts no longer remove the adjacent Camfrog analysis files in `build/`.
+- Kept the complete test suite in the Ubuntu baseline workflow after the root migration; it now installs the app requirements and runs pytest rather than selecting only the bootstrap test.
+
 ### Fixed — runtime follow-up
 
 - Wired the existing **Allow foreground fallback** UI option into the controller instead of failing immediately after background verification fails.
@@ -11,9 +18,21 @@
 - Initialized COM in STA mode before loading the UI/controller stack to avoid pywinauto/comtypes apartment-mode churn.
 - Reduced Windows PyInstaller warning noise by excluding unused Linux/macOS tray/UI backends while keeping Win32 tray support explicit.
 
+### Fixed — audit follow-up
+
+- Restrict Camfrog discovery to known client executable names or the exact configured executable path, so the status manager itself is not mistaken for an online Camfrog client.
+- Stop status/room automation when multiple Camfrog windows or status controls match instead of sending to the highest-scoring guess; the Win32 fallback now preserves the ambiguity result and does not continue to coordinate fallback.
+- Remove account-specific status text, owner metadata, email addresses, and secret-like values from fresh defaults and test fixtures.
+- Upgrade Pillow to the minimum fixed version reported by the dependency vulnerability audit.
+- Pin PyInstaller to the version used for the verified Windows candidate builds.
+- Route the standard build entrypoint through the tested Windows builder and keep the current app process and published EXE until staged tests and packaging succeed.
+- Fix Inspect error callbacks that referenced the exception variable after its `except` scope ended.
+- Add `scripts/__init__.py` so repository tests reliably import the local bootstrap module when an unrelated installed `scripts` package exists.
+- Exclude legacy release ZIPs containing account-specific identity/contact data from the new root `tags/` directory; only the neutral reverse-engineering kits were carried forward.
+
 ### Integrated — 2026-10-01
 
-- Integrated Camfrog Status Changer `2.3.1-rc2` project documentation and core application modules.
+- Imported the historical `2.3.1-rc2` source bundle and documentation. This archive label is not the current application version; `version.py` is authoritative.
 - Added background-first controller, Win32/UIA integration, known-client fingerprint profile and fail-closed fallbacks.
 - Added four independent message slots and enforced `1 tick = 1 message = 1 set_status()`.
 - Added sequential/random rotation and seconds/minutes/hours interval selection.

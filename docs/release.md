@@ -2,11 +2,11 @@
 
 ## Scope
 
-This template provides release guidance and release-note configuration. It does **not** provide a generic artifact-publishing workflow because publishing credentials, registries, signing, environments, and approval policy are project-specific.
+The Windows application workflow runs tests, builds the executable, generates a SHA-256 manifest, and uploads a short-lived workflow artifact. It does not publish a GitHub Release, sign the executable, or establish production readiness.
 
 ## Versioning
 
-Use an explicit versioning policy. Semantic Versioning is recommended for reusable software unless the project defines a better scheme.
+The application version is maintained in `version.py` and recorded in `CHANGELOG.md`. Keep prerelease status explicit until a stable-release policy is adopted.
 
 ## Release checklist
 
