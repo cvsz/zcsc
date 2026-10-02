@@ -64,6 +64,15 @@ def apply_status_foreground(parent_hwnd: int, relative_x: float, relative_y: flo
                 pass
         time.sleep(0.20)
 
+        # Fail closed before any coordinate click or global keyboard input.
+        # If Camfrog does not own foreground focus, do not risk typing into
+        # whichever application currently has focus.
+        if win32gui.GetForegroundWindow() != hwnd:
+            return ForegroundResult(
+                False,
+                "Camfrog could not obtain foreground focus; Enter commit was not attempted",
+            )
+
         edit = None
         try:
             edit = _exact_status_edit(hwnd)
