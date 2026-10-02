@@ -167,3 +167,14 @@ def test_stopped_rotation_does_not_send_after_waiting_for_status_lock(monkeypatc
     assert not stopped.is_alive()
     assert not any(event == ("enter", "{ENTER}") for event in events)
     assert not any(event == ("ensure",) for event in events)
+
+
+def test_cancelled_status_result_does_not_report_requested_text_as_previous():
+    controller = CamfrogController({"advanced": {"max_status_length": 160}})
+    controller.ensure_running = lambda: pytest.fail("cancelled requests must not start Camfrog")
+
+    result = controller.set_status("stale status", cancelled=lambda: True)
+
+    assert not result.ok
+    assert result.previous_value == ""
+    assert result.new_value == "stale status"

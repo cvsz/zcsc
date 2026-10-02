@@ -730,21 +730,21 @@ class CamfrogController:
         # Apply and rotation requests are serialized instead of discarding the
         # later request when both reach the sender in the same interval.
         if not self._acquire_apply_lock(cancelled):
-            return ChangeResult(False, "Status change cancelled before sending", previous_value=value)
+            return ChangeResult(False, "Status change cancelled before sending", new_value=value)
         try:
             if self._is_cancelled(cancelled):
-                return ChangeResult(False, "Status change cancelled before sending", previous_value=value)
+                return ChangeResult(False, "Status change cancelled before sending", new_value=value)
             running = self.ensure_running()
             if not running.ok:
                 return running
             if self._is_cancelled(cancelled):
-                return ChangeResult(False, "Status change cancelled before sending", previous_value=value)
+                return ChangeResult(False, "Status change cancelled before sending", new_value=value)
             if cancelled is None:
                 self._wait_for_send_slot()
             elif not self._wait_for_send_slot(cancelled=cancelled):
-                return ChangeResult(False, "Status change cancelled before sending", previous_value=value)
+                return ChangeResult(False, "Status change cancelled before sending", new_value=value)
             if self._is_cancelled(cancelled):
-                return ChangeResult(False, "Status change cancelled before sending", previous_value=value)
+                return ChangeResult(False, "Status change cancelled before sending", new_value=value)
 
             try:
                 win = self.find_window()

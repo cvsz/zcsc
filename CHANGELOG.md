@@ -48,7 +48,8 @@
 - Load `win32con` in the native combo notification path so its `WM_COMMAND` notifications do not fail with `NameError`.
 - Restore the prior clipboard in a `finally` block when coordinate status entry aborts before Enter.
 - Let rotation pass a cancellation signal through the dashboard to `CamfrogController`; a stopped rotation now abandons a status still waiting for the apply lock before starting or sending it. Legacy one-argument callbacks remain supported.
-- Add three regressions that failed against the prior code. Full local validation passed 301 pytest tests, `compileall`, `scripts/validate_repo.py`, and `pip-audit`; exact-head GitHub and Windows build checks remain pending. No live Camfrog action was performed.
+- Keep cancellation results' `previous_value` empty until a previous Camfrog status has actually been read, while retaining the requested text in `new_value`.
+- Add four regressions that failed against the prior code. Full local validation passed 302 pytest tests, `compileall`, `scripts/validate_repo.py`, and `pip-audit`; exact-head GitHub and Windows build checks remain pending. No live Camfrog action was performed.
 
 ### Fixed — P5 registry history dump
 
