@@ -1,6 +1,6 @@
 # Roadmap
 
-Camfrog Status Changer is maintained at the repository root. The repo also retains shared zcsc governance and engineering tools.
+ZeaZDev-CamfrogStatusChanger is the project name; Camfrog Status Changer is its Windows desktop application, maintained at the repository root. The repo also retains shared engineering tools.
 
 ## Application baseline
 

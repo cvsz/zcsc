@@ -1,6 +1,6 @@
 # Development
 
-Camfrog Status Changer is a Windows desktop application. The checkout also retains repository validation and administration tools.
+ZeaZDev-CamfrogStatusChanger is the project; Camfrog Status Changer is its Windows desktop application. The checkout also retains repository validation and administration tools.
 
 ## Local setup
 

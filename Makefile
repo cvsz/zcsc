@@ -4,7 +4,7 @@ PYTHON ?= py
 .PHONY: help setup validate-repo validate-template bootstrap-test test compile build ci
 
 help:
-	@printf '%s\n' 'Camfrog Status Changer (Windows): setup test compile build' 'Repository: validate-repo bootstrap-test ci' 'Override PYTHON=python3 when using a compatible non-Windows Python environment.'
+	@printf '%s\n' 'ZeaZDev-CamfrogStatusChanger / Camfrog Status Changer (Windows): setup test compile build' 'Repository: validate-repo bootstrap-test ci' 'Override PYTHON=python3 when using a compatible non-Windows Python environment.'
 
 setup:
 	$(PYTHON) -m pip install -r requirements.txt pytest pyinstaller==6.22.3

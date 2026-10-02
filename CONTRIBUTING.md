@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for contributing to Camfrog Status Changer and the reusable engineering tooling in this repository.
+Thanks for contributing to ZeaZDev-CamfrogStatusChanger, including its Camfrog Status Changer desktop application and shared engineering tools.
 
 ## Development workflow
 

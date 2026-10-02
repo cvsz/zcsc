@@ -33,7 +33,7 @@ Security/quality failures should be fixed rather than bypassed. CI, infrastructu
 
 ## Repository direction
 
-This repository keeps the Camfrog Status Changer application at the root alongside the reusable zcsc engineering foundation:
+This repository is the **ZeaZDev-CamfrogStatusChanger** project. Its Windows desktop product is named Camfrog Status Changer; application code lives at the repository root alongside shared zcsc engineering tools:
 
 - Windows desktop status and room-management tooling for Camfrog
 - repository governance, security policy, and protected change flow

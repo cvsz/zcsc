@@ -1,6 +1,6 @@
-# Camfrog Status Changer 2.2.5-rc11 — Candidate
+# ZeaZDev-CamfrogStatusChanger
 
-> RC11 was built from the root-migrated source and its Windows test suite passed. The RC10 executable and its manifest are historical artifacts and do not contain the audit fixes. Camfrog UI and live service behavior have not been tested with RC11.
+> Camfrog Status Changer 2.2.5-rc11 is the Windows desktop application in the ZeaZDev-CamfrogStatusChanger project. RC11 was built from the root-migrated source and its Windows test suite passed. The RC10 executable and its manifest are historical artifacts and do not contain the audit fixes. Camfrog UI and live service behavior have not been tested with RC11.
 
 ## 2.2.5-rc11 — Root migration audit fixes
 

@@ -1,6 +1,6 @@
 # Architecture
 
-Camfrog Status Changer is a Windows desktop application. Its source, tests, build assets, and application documentation live at the repository root.
+ZeaZDev-CamfrogStatusChanger is the project; Camfrog Status Changer is its Windows desktop application. Its source, tests, build assets, and application documentation live at the repository root.
 
 ## Application layers
 
