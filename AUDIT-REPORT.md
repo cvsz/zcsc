@@ -3,14 +3,14 @@
 ## Unreleased root migration audit
 
 - Exact client process matching prevents `CamfrogStatusChanger.exe` and similarly named helper applications from making the dashboard report Camfrog as running.
-- Automation now refuses ambiguous Camfrog windows and status controls. Both UIA and Win32 ambiguity paths fail closed without continuing to another guessed target.
+- Automation refuses ambiguous Camfrog windows and status controls. Generic UIA ComboBoxes without an exact configured automation ID, native Camfrog class, or observed status value are rejected before any fallback write.
 - Fresh config defaults and registry test fixtures no longer contain account-specific status strings or contact data.
 - Pillow was updated after the dependency audit reported vulnerabilities in the prior pinned version.
 - The Inspect worker's exception callback now captures the error before leaving the `except` scope.
-- Repository-local scripts are an explicit Python package so `tests/test_bootstrap.py` cannot resolve an unrelated installed `scripts` package.
-- The Ubuntu baseline workflow again runs the full pytest suite, with application dependencies installed; it no longer narrows discovery to the bootstrap test.
+- The dashboard stays visible when the tray cannot be started, restores itself if the tray thread later stops, and exits cleanly on close instead of hiding without a working tray icon.
+- The Ubuntu baseline workflow runs the complete pytest suite with application dependencies installed.
 - Historical release ZIPs in the former app subtree contain account-specific identity/contact strings in bundled source and bytecode fixtures. They were not copied into root `tags/`; the original Git history is unchanged by this worktree cleanup.
-- The current-source repository CI sequence passes locally in an isolated Linux environment. The RC11 Windows build and full test suite also pass; the 16,430,734-byte x64 EXE and its matching manifest are in `dist/2.2.5-rc11-windows-x64/` (SHA-256 `f9546f1badd21e15b093f0dffcd880f97fd862ce53cc15fa934e63e3c31daa99`). The executable was not launched, so live Camfrog UI, status, room, and server behavior remain unverified.
+- The Windows workflow builds the x64 executable and uploads the executable and manifest as a temporary workflow artifact; they are not stored in the Git checkout. The executable was not launched against Camfrog, so live UI, status, room, and server behavior remain unverified.
 
 ## Fixed defects captured during development
 

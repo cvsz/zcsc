@@ -16,10 +16,10 @@ This document defines the governance model for this repository. Maintainers shou
 Normal changes flow through pull requests with required checks and review. Repository administration controls should be verified with:
 
 ```bash
-python3 scripts/github_admin.py --repo OWNER/REPO --verify
+python3 scripts/github_admin.py --verify
 ```
 
-A generated repository should not rely on documentation alone to prove that its branch protections or security settings are effective.
+This repository should not rely on documentation alone to prove that its branch protections or security settings are effective.
 
 ## Decisions
 

@@ -9,7 +9,7 @@
 - Fresh status presets are blank and user-specific identities were removed from source defaults and test fixtures.
 - Pillow is pinned to 12.3.0 after the dependency audit reported vulnerabilities in the earlier version.
 - CI again runs the complete test suite on Ubuntu and retains the Windows test/build job.
-- The Windows build passed on Python 3.11.9 with PyInstaller 6.22.3; its full suite passed 146 tests and 3 subtests, and `compileall` passed. The x64 artifact and matching manifest are in `dist/2.2.5-rc11-windows-x64/`.
+- A prior Windows build passed on Python 3.11.9 with PyInstaller 6.22.3; its full suite passed 146 tests and 3 subtests, and `compileall` passed. Executables and manifests are generated outputs, excluded from the source checkout; the Windows workflow uploads a temporary artifact when it runs.
 - The executable has not been launched against Camfrog. UI Automation, status submission, room actions, signing, and antivirus behavior remain unverified.
 
 ## 2.2.5-rc10 — Exact room targeting

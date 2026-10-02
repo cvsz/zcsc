@@ -25,8 +25,7 @@ ZeaZDev-CamfrogStatusChanger is the project name; Camfrog Status Changer is its 
 
 - [x] Security, contribution, governance, and release policies
 - [x] Least-privilege baseline CI and security workflows
-- [x] Local structure/link validation and bootstrap tests
+- [x] Local application-structure and documentation-link validation
 - [x] GitHub administration verification helper
 - [x] ZEAZ cross-agent execution framework and reusable AI playbooks
 - [x] Skill, component, and plugin catalogs
-- [x] Safe existing-repository rollout guidance

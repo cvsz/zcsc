@@ -13,7 +13,7 @@ ZeaZDev-CamfrogStatusChanger is the project; Camfrog Status Changer is its Windo
 
 3. Run `run_dev.bat` to start the app, or use the repository tasks below.
 
-The checked-out `build/` and `dist/` directories contain ignored historical artifacts, including Camfrog analysis samples. Build scripts must write only to the Camfrog Status Changer work directory and must never clean the entire `build/` tree.
+Build outputs are ignored and are not part of a fresh source checkout. The builder isolates PyInstaller work under `build/CamfrogStatusChanger-work`; it must not clean adjacent Camfrog analysis files in the `build/` tree.
 
 ## Repository tasks
 
@@ -45,7 +45,7 @@ Before merge, capture exact-head evidence for the checks that apply to the chang
 For repository administration changes, use the read-back verifier:
 
 ```bash
-python3 scripts/github_admin.py --repo OWNER/REPO --verify
+python3 scripts/github_admin.py --verify
 ```
 
 ## Documentation

@@ -19,7 +19,7 @@ Use concise prefixes such as `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `t
 
 Prefer Conventional Commits, for example:
 
-- `feat: add project scaffolding`
+- `feat: add a status preset filter`
 - `fix: handle empty configuration`
 - `security: harden token validation`
 - `docs: update deployment guide`

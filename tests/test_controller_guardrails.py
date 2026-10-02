@@ -8,6 +8,7 @@ from camfrog.controller import (
     CamfrogController,
     CamfrogInstanceAmbiguityError,
     ChangeResult,
+    UnverifiedStatusControlError,
 )
 from camfrog.background_win32 import BackgroundResult
 
@@ -75,18 +76,67 @@ def test_status_editor_refuses_multiple_generic_edit_controls():
         CamfrogController._find_status_editor(combo)
 
 
-def test_status_target_refuses_equal_scoring_controls():
+def test_status_target_rejects_unverified_generic_combo():
+    control = SimpleNamespace(
+        handle=1,
+        element_info=SimpleNamespace(automation_id="", class_name="Edit", control_type="ComboBox"),
+        window_text=lambda: "",
+    )
+    window = SimpleNamespace(descendants=lambda control_type=None: [control])
+
+    with pytest.raises(UnverifiedStatusControlError, match="generic ComboBox"):
+        CamfrogController(config())._find_target(window)
+
+
+def test_status_target_accepts_explicit_configured_id():
+    cfg = config()
+    cfg["target"]["automation_id"] = "status-combo"
+    control = SimpleNamespace(
+        handle=1,
+        element_info=SimpleNamespace(automation_id="status-combo", class_name="Edit", control_type="ComboBox"),
+        window_text=lambda: "",
+    )
+    window = SimpleNamespace(descendants=lambda control_type=None: [control])
+
+    assert CamfrogController(cfg)._find_target(window) is control
+
+
+def test_status_target_accepts_native_camfrog_combo():
+    control = SimpleNamespace(
+        handle=1,
+        element_info=SimpleNamespace(automation_id="", class_name="CComboBoxTS", control_type="Custom"),
+        window_text=lambda: "",
+    )
+    window = SimpleNamespace(descendants=lambda control_type=None: [control])
+
+    assert CamfrogController(config())._find_target(window) is control
+
+
+def test_status_target_accepts_configured_known_status_value():
+    cfg = config()
+    cfg["status"]["presets"] = ["Known status"]
+    control = SimpleNamespace(
+        handle=1,
+        element_info=SimpleNamespace(automation_id="", class_name="Edit", control_type="ComboBox"),
+        window_text=lambda: "Known status",
+    )
+    window = SimpleNamespace(descendants=lambda control_type=None: [control])
+
+    assert CamfrogController(cfg)._find_target(window) is control
+
+
+def test_status_target_refuses_equal_scoring_native_controls():
     def candidate(handle):
         return SimpleNamespace(
             handle=handle,
-            element_info=SimpleNamespace(automation_id="", class_name="Edit", control_type="ComboBox"),
+            element_info=SimpleNamespace(automation_id="", class_name="CComboBoxTS", control_type="ComboBox"),
             window_text=lambda: "",
         )
 
     controls = [candidate(1), candidate(2)]
     window = SimpleNamespace(descendants=lambda control_type=None: controls if control_type else [])
 
-    with pytest.raises(RuntimeError, match="matched equally"):
+    with pytest.raises(AmbiguousStatusControlError, match="matched equally"):
         CamfrogController(config())._find_target(window)
 
 
@@ -119,6 +169,34 @@ def test_ambiguous_uia_status_target_stops_before_win32_fallback(monkeypatch):
 
     assert not result.ok
     assert "multiple status controls" in result.message
+    assert fallback_calls == []
+
+
+def test_unverified_generic_uia_combo_stops_before_win32_or_coordinate_fallback(monkeypatch):
+    controller = CamfrogController(config())
+    controller.ensure_running = lambda: ChangeResult(True, "running")
+    controller._wait_for_send_slot = lambda: None
+    generic_combo = SimpleNamespace(
+        handle=22,
+        element_info=SimpleNamespace(automation_id="", class_name="Edit", control_type="ComboBox"),
+        window_text=lambda: "",
+    )
+    controller.find_window = lambda: SimpleNamespace(
+        handle=11,
+        descendants=lambda control_type=None: [generic_combo],
+    )
+    controller.native_profile_info = lambda: {"matched": False, "sha256": ""}
+    fallback_calls = []
+    monkeypatch.setattr(
+        "camfrog.controller.set_status_background",
+        lambda *_args, **_kwargs: fallback_calls.append("background"),
+    )
+    controller._coordinate_fallback = lambda *_args: fallback_calls.append("coordinate")
+
+    result = controller.set_status("Hello")
+
+    assert not result.ok
+    assert "configure its exact automation ID" in result.message
     assert fallback_calls == []
 
 

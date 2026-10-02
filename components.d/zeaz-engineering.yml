@@ -1,5 +1,5 @@
 name: ZEAZ Engineering
-repo: cvsz/ztemplate
+repo: cvsz/zcsc
 description: Reusable ZEAZ engineering execution and verification skills.
 skills:
   - path: skills/zeaz-skill-finder/

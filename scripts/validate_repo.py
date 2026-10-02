@@ -26,7 +26,8 @@ REQUIRED_PATHS = (
     "CODE_OF_CONDUCT.md",
     "CHANGELOG.md",
     "ROADMAP.md",
-    "IMPLEMENTATION-CHECKLIST.md",
+    "docs/startup.md",
+    "PRODUCTION-READINESS.md",
     ".github/PULL_REQUEST_TEMPLATE.md",
     ".github/dependabot.yml",
     "docs/ai/README.md",
@@ -74,8 +75,7 @@ def validate_markdown_links() -> list[str]:
             target = normalize_link_target(raw)
             if not target:
                 continue
-            link_base = ROOT if md.relative_to(ROOT).as_posix() == "templates/project-readme.md" else md.parent
-            resolved = (link_base / target).resolve()
+            resolved = (md.parent / target).resolve()
             try:
                 resolved.relative_to(ROOT.resolve())
             except ValueError:

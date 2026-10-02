@@ -2,16 +2,16 @@
 
 Version: 2.2.5-rc11
 
-> RC10 was built from an earlier source snapshot. RC11 identifies the current audited source and has a verified Windows build; its live Camfrog behavior remains unverified.
+> RC10 and RC11 refer to prior candidate builds. Re-run the Windows workflow on the exact release candidate before using its build evidence; live Camfrog behavior remains unverified.
 
 ## Current audit evidence (2026-10-02)
 
-- The full current-source test suite passed locally in an isolated Python 3.14 environment with the declared requirements: 146 tests passed and 3 subtests passed. The repository CI sequence, including bootstrap tests and compile checks, also passed.
+- On 2026-10-02, `make ci` passed in this working tree on Python 3.14.4: repository structure/link validation, 150 tests, and `compileall`. The Windows build and live Camfrog behavior still require exact-head Windows/runtime evidence.
 - Python compile checks, repository structure/local Markdown link validation, YAML parsing for 13 workflow/config files, and isolated Ruff correctness/syntax checks passed.
 - Bandit reported no medium/high-severity findings; pip-audit reported no known vulnerabilities in the pinned requirements after upgrading Pillow.
-- The current RC11 source passed the full Windows suite (146 tests and 3 subtests) and `compileall` on Python 3.11.9. PyInstaller 6.22.3 produced a Windows x64 executable; its release manifest matches the file's SHA-256 and size. The files are in `dist/2.2.5-rc11-windows-x64/`.
+- A prior RC11 Windows workflow run passed 146 tests and 3 subtests and built a Windows x64 executable with PyInstaller 6.22.3. Its executable and manifest are workflow artifacts, not files in the Git checkout; re-run the workflow on the exact release candidate before release.
 - The executable was not launched against Camfrog. UIA controls, live status submission, room commands, server-visible behavior, code signing, and antivirus behavior remain unverified.
-- The existing RC10 EXE still matches its recorded SHA-256 and size, but predates these source changes.
+- Previously built RC10/RC11 executables are historical candidates and do not establish evidence for a later source commit.
 
 ## Evidence from the earlier RC10 candidate
 

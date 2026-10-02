@@ -1,21 +1,20 @@
 SHELL := /bin/sh
-PYTHON ?= py
+ifeq ($(OS),Windows_NT)
+PYTHON ?= py -3
+else
+PYTHON ?= python3
+endif
 
-.PHONY: help setup validate-repo validate-template bootstrap-test test compile build ci
+.PHONY: help setup validate-repo test compile build ci
 
 help:
-	@printf '%s\n' 'ZeaZDev-CamfrogStatusChanger / Camfrog Status Changer (Windows): setup test compile build' 'Repository: validate-repo bootstrap-test ci' 'Override PYTHON=python3 when using a compatible non-Windows Python environment.'
+	@printf '%s\n' 'ZeaZDev-CamfrogStatusChanger / Camfrog Status Changer (Windows): setup test compile build' 'Repository: validate-repo ci'
 
 setup:
 	$(PYTHON) -m pip install -r requirements.txt pytest pyinstaller==6.22.3
 
 validate-repo:
 	$(PYTHON) scripts/validate_repo.py
-
-validate-template: validate-repo bootstrap-test
-
-bootstrap-test:
-	$(PYTHON) -m unittest discover -s tests -p 'test_bootstrap.py' -v
 
 test:
 	$(PYTHON) -m pytest -q
@@ -27,4 +26,4 @@ build:
 	@case "$$(uname -s 2>/dev/null || echo unknown)" in MINGW*|MSYS*|CYGWIN*) ;; *) echo 'The Camfrog executable build requires Windows.' >&2; exit 2;; esac
 	cmd.exe /d /c build_exe.bat
 
-ci: validate-repo bootstrap-test test compile
+ci: validate-repo test compile

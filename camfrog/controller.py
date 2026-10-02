@@ -52,6 +52,10 @@ class AmbiguousStatusControlError(RuntimeError):
     """Raised when status text could be written to more than one UI control."""
 
 
+class UnverifiedStatusControlError(RuntimeError):
+    """Raised when UIA exposes only generic controls that cannot be identified as status."""
+
+
 class CamfrogController:
     def __init__(self, config: dict):
         self.config = config
@@ -389,6 +393,7 @@ class CamfrogController:
             pass
 
         seen = set()
+        unverified_controls = 0
         known_statuses = {str(x).strip().casefold() for x in self.config.get("status", {}).get("presets", []) if str(x).strip()}
         for ctrl in pool:
             try:
@@ -405,9 +410,19 @@ class CamfrogController:
                     continue
                 score = 0
                 cls = str(info.class_name or "").lower()
-                if cls == "ccomboboxts":
+                is_native_status = cls == "ccomboboxts"
+                matches_known_status = title.strip().casefold() in known_statuses
+                matches_configured_id = bool(automation_id and info.automation_id == automation_id)
+                # A generic ComboBox match alone is not enough evidence: writing
+                # it and sending Enter could alter an unrelated Camfrog field.
+                if not (is_native_status or matches_known_status or matches_configured_id):
+                    unverified_controls += 1
+                    continue
+                if matches_configured_id:
+                    score += 2000
+                if is_native_status:
                     score += 1000
-                if title.strip().casefold() in known_statuses:
+                if matches_known_status:
                     score += 500
                 if info.control_type == control_type:
                     score += 100
@@ -415,7 +430,11 @@ class CamfrogController:
             except Exception:
                 continue
         if not candidates:
-            raise RuntimeError("Configured status control was not found")
+            if unverified_controls:
+                raise UnverifiedStatusControlError(
+                    "UIA found a generic ComboBox but no verified Camfrog status control; configure its exact automation ID"
+                )
+            raise RuntimeError("No positively identified Camfrog status control was found")
         candidates.sort(key=lambda item: item[0], reverse=True)
         best_score = candidates[0][0]
         if sum(score == best_score for score, _control in candidates) > 1:
@@ -693,6 +712,8 @@ class CamfrogController:
                     # UIA could not verify a value. The Win32 path now owns the
                     # single fallback write and commit attempt.
                 except AmbiguousStatusControlError as exc:
+                    return ChangeResult(False, f"Status change failed: {exc}", previous, value)
+                except UnverifiedStatusControlError as exc:
                     return ChangeResult(False, f"Status change failed: {exc}", previous, value)
                 except Exception as exc:
                     errors.append(f"UIA target: {exc}")

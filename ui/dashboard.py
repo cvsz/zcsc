@@ -105,6 +105,7 @@ class AppUI(ctk.CTk):
         self.after(500, self._start_tray)
         self.after(650, self._auto_import_registry_presets)
         self.after(800, self._resume_background_automation)
+        self.after(1000, self._monitor_tray)
 
 
     def _set_application_icon(self):
@@ -2064,7 +2065,10 @@ class AppUI(ctk.CTk):
             self._room_event_last_state = "Room event notifications are disabled"
             self._render_room_event_state()
         if c.get("startup", {}).get("start_minimized", False):
-            self.withdraw()
+            if self._tray_available():
+                self.withdraw()
+            else:
+                log.warning("Start minimized was requested, but the system tray is unavailable; keeping the dashboard visible")
 
     def _format_auto_respond_state(self, state: str) -> str:
         thai_states = {
@@ -2124,6 +2128,25 @@ class AppUI(ctk.CTk):
         self.deiconify()
         self.lift()
 
+    def _tray_available(self) -> bool:
+        try:
+            return self._tray_icon is not None and self._tray_thread is not None and self._tray_thread.is_alive()
+        except Exception:
+            return False
+
+    def _monitor_tray(self):
+        if self._exiting:
+            return
+        if self._tray_icon is not None and not self._tray_available():
+            try:
+                if self.state() == "withdrawn":
+                    log.warning("System tray stopped while the dashboard was hidden; restoring the window")
+                    self.deiconify()
+                    self.lift()
+            except Exception:
+                log.exception("Could not restore the dashboard after the system tray stopped")
+        self.after(1000, self._monitor_tray)
+
     def _exit_app(self):
         self._exiting = True
         self.rotation.stop()
@@ -2143,4 +2166,8 @@ class AppUI(ctk.CTk):
         if self._exiting:
             self._exit_app()
             return
-        self.withdraw()
+        if self._tray_available():
+            self.withdraw()
+        else:
+            log.warning("System tray is unavailable; exiting instead of hiding the dashboard")
+            self._exit_app()

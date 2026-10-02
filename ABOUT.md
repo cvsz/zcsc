@@ -33,14 +33,14 @@ Security/quality failures should be fixed rather than bypassed. CI, infrastructu
 
 ## Repository direction
 
-This repository is the **ZeaZDev-CamfrogStatusChanger** project. Its Windows desktop product is named Camfrog Status Changer; application code lives at the repository root alongside shared zcsc engineering tools:
+This repository is the **ZeaZDev-CamfrogStatusChanger** project. Its Windows desktop product is named Camfrog Status Changer; application code lives at the repository root alongside shared engineering tools:
 
 - Windows desktop status and room-management tooling for Camfrog
 - repository governance, security policy, and protected change flow
 - CI/security automation and dependency maintenance
 - release/recovery guidance and local repository validation
 - AI-agent operating contracts, playbooks, and evidence-state semantics
-- repository administration verification and safe rollout guidance
+- repository administration verification
 
 Application readiness remains evidence-based and Windows/Camfrog-version specific. Repository scaffolding, CI, and documentation do not prove server-visible behavior or production readiness.
 
@@ -51,4 +51,4 @@ Application readiness remains evidence-based and Windows/Camfrog-version specifi
 
 ---
 
-This profile intentionally contains public-safe technical/project information only. Credentials, private account data, personal secrets, and sensitive identity information must not be added to a public repository template.
+This profile contains public-safe technical/project information only. Credentials, private account data, personal secrets, and sensitive identity information must not be added to this public repository.

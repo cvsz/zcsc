@@ -1,6 +1,6 @@
 # Cloudflare and Terraform ownership
 
-This template does not ship Cloudflare Terraform. Public DNS records and tunnel
+This application repository does not own Cloudflare Terraform. Public DNS records and tunnel
 ingress must have exactly one owning repository, and that repository is the only
 place they may be declared.
 
@@ -13,8 +13,9 @@ place they may be declared.
 | This repository may | declare application code, containers, and its own runtime configuration |
 | This repository must not | contain `cloudflare_dns_record`, `cloudflare_tunnel`, `cfargotunnel.com`, or a per-project `infrastructure/terraform/cloudflare` |
 
-Replace the owner above with whatever your organization actually uses. The rest
-of this document is written against a worked example, so adapt the names.
+The designated infrastructure owner is organization-specific and is not named
+here. The rest of this document uses a worked example; adapt the placeholder
+names to the owning repository's conventions.
 
 ### Worked example
 
