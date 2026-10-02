@@ -248,7 +248,7 @@ The Detect action first checks `%LOCALAPPDATA%\Programs\Camfrog Video Chat\Camfr
 - Daily schedule and overnight quiet hours use local Windows time. A rotation tick outside the allowed window is skipped; rotation resumes on the next eligible tick.
 - The sender writes once, verifies the Camfrog status Edit before commit, then sends one Enter. It does not type the payload again, send Enter to the parent combo, or click another control. The client/server acceptance is not independently observable, so the success message describes the verified field and Enter action rather than server publication.
 - The verified UIA path focuses Camfrog after the single text write, waits 0.45 seconds, and sends one real Enter. If UIA cannot verify the text, the default is to skip commit; the optional coordinate fallback can be enabled separately.
-- Ctrl+C/V/X/A work in the Entry and Text editors; paste replaces the selected range at its start.
+- Ctrl+C/V/X/A work in the Entry and Text editors; paste replaces the selected range at its start. Windows copy/cut/paste uses `CF_UNICODETEXT` to preserve Thai and other Unicode characters.
 - TH/EN switching now covers the main application labels, buttons, automation controls, units, modes and primary runtime state text.
 - Random Color, Custom Color, and Marquee remain optional and transform only the single message being applied on that tick.
 

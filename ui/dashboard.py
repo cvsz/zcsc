@@ -29,6 +29,7 @@ from camfrog.registry_status import merge_presets, read_camfrog_custom_statuses
 from system.config_store import DEFAULT_BAD_WORD_TERMS
 from system.startup import set_start_with_windows
 from system.tray import resource_path
+from ui.clipboard import get_clipboard_text, set_clipboard_text
 from status_catalog import (
     DEFAULT_STANDARD_STATUS_ID,
     STATUS_CATEGORY_LABELS,
@@ -197,8 +198,11 @@ class AppUI(ctk.CTk):
                     first = widget.index("sel.first")
                     last = widget.index("sel.last")
                     selected = widget.get()[first:last]
-                self.clipboard_clear()
-                self.clipboard_append(selected)
+                try:
+                    set_clipboard_text(self, selected)
+                except Exception as exc:
+                    log.warning("Clipboard %s failed (%s)", action, type(exc).__name__)
+                    return "break"
                 if action == "cut":
                     if is_text:
                         widget.delete("sel.first", "sel.last")
@@ -207,7 +211,11 @@ class AppUI(ctk.CTk):
                 return "break"
 
             if action == "paste":
-                value = self.clipboard_get()
+                try:
+                    value = get_clipboard_text(self)
+                except Exception as exc:
+                    log.warning("Clipboard paste failed (%s)", type(exc).__name__)
+                    return "break"
                 if is_text:
                     try:
                         first = widget.index("sel.first")
