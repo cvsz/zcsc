@@ -17,7 +17,7 @@ def test_status_changer_window_is_penalized():
 
 def test_manual_and_rotation_use_different_rate_limit_modes():
     source = (Path(__file__).parents[1] / "ui" / "dashboard.py").read_text(encoding="utf-8")
-    assert "set_status(value,respect_rate_limit=False)" in source
+    assert "set_status(value,respect_rate_limit=False,force_enter_commit=True)" in source
     assert "set_status(styled,respect_rate_limit=True)" in source
 
 
