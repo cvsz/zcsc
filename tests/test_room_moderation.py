@@ -164,7 +164,7 @@ def test_room_action_requires_confirmation_and_exact_room(monkeypatch):
     window = FakeWindow()
     controller = CamfrogRoomActionController(FakeController(window))
     config = _moderation_config()
-    monkeypatch.setattr(room_actions.os, "name", "nt")
+    monkeypatch.setattr(room_actions, "os", SimpleNamespace(name="nt"))
 
     rejected = controller.send_action(config, "kick", "Alice", lambda _command: False)
     assert not rejected.ok
@@ -194,7 +194,7 @@ def test_room_action_requires_confirmation_and_exact_room(monkeypatch):
 def test_room_action_accepts_camfrog_room_suffix_but_cancels_before_send(monkeypatch):
     window = FakeWindow(title="Welcome Room: Video Chat Room")
     controller = CamfrogRoomActionController(FakeController(window))
-    monkeypatch.setattr(room_actions.os, "name", "nt")
+    monkeypatch.setattr(room_actions, "os", SimpleNamespace(name="nt"))
 
     result = controller.send_action(
         _moderation_config(),
@@ -213,7 +213,7 @@ def test_room_action_never_replaces_an_existing_draft(monkeypatch):
     window = FakeWindow()
     window.compose.text = "my unsent draft"
     controller = CamfrogRoomActionController(FakeController(window))
-    monkeypatch.setattr(room_actions.os, "name", "nt")
+    monkeypatch.setattr(room_actions, "os", SimpleNamespace(name="nt"))
 
     result = controller.send_action(_moderation_config(), "kick", "Alice", lambda _command: True)
 
@@ -227,7 +227,7 @@ def test_room_action_requires_exact_room_configuration(monkeypatch):
     controller = CamfrogRoomActionController(FakeController(window))
     config = _moderation_config()
     config["room_actions"]["room_title"] = "Another Room"
-    monkeypatch.setattr(room_actions.os, "name", "nt")
+    monkeypatch.setattr(room_actions, "os", SimpleNamespace(name="nt"))
 
     result = controller.send_action(config, "kick", "Alice", lambda _command: True)
 
@@ -241,7 +241,7 @@ def test_bad_word_auto_kick_setting_submits_once_without_prompt(monkeypatch):
     config = _moderation_config()
     config["bad_word_moderation"]["auto_kick"] = True
     match = BadWordMatch("Welcome Room", "Alice_7", "new badword message", "badword")
-    monkeypatch.setattr(room_actions.os, "name", "nt")
+    monkeypatch.setattr(room_actions, "os", SimpleNamespace(name="nt"))
 
     result = submit_bad_word_kick(
         config,
@@ -277,7 +277,7 @@ def test_bad_word_monitor_only_reports_new_messages_and_skips_own_account(monkey
     window = FakeWindow(title="Welcome Room: Video Chat Room")
     monitor = CamfrogBadWordMonitor(FakeController(window))
     config = _moderation_config()
-    monkeypatch.setattr(bad_word_moderation.os, "name", "nt")
+    monkeypatch.setattr(bad_word_moderation, "os", SimpleNamespace(name="nt"))
 
     _set_history(window, "Alice: old badword")
     matches, state = monitor.poll_once(config)
@@ -301,7 +301,7 @@ def test_bad_word_monitor_rejects_nonmatching_room_title(monkeypatch):
     window = FakeWindow(title="Another Room")
     _set_history(window, "Alice: old badword")
     monitor = CamfrogBadWordMonitor(FakeController(window))
-    monkeypatch.setattr(bad_word_moderation.os, "name", "nt")
+    monkeypatch.setattr(bad_word_moderation, "os", SimpleNamespace(name="nt"))
 
     matches, state = monitor.poll_once(_moderation_config())
 

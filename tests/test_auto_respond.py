@@ -109,7 +109,7 @@ def test_auto_respond_uses_only_new_incoming_messages(monkeypatch):
     controller = FakeController(window)
     responder = CamfrogAutoResponder(controller)
     config = _config()
-    monkeypatch.setattr(auto_respond.os, "name", "nt")
+    monkeypatch.setattr(auto_respond, "os", SimpleNamespace(name="nt"))
 
     _set_history(window, "Alice: Existing message")
     assert responder.poll_once(config) == "Auto respond is monitoring configured chat controls"
@@ -141,7 +141,7 @@ def test_auto_respond_supports_room_chat_mapping(monkeypatch):
         "send_automation_id": "room-send",
     }
     responder = CamfrogAutoResponder(FakeController(window))
-    monkeypatch.setattr(auto_respond.os, "name", "nt")
+    monkeypatch.setattr(auto_respond, "os", SimpleNamespace(name="nt"))
 
     _set_history(window, "Alice: Existing room message")
     responder.poll_once(config)
@@ -167,7 +167,7 @@ def test_auto_respond_submits_multiline_reply_as_one_message(monkeypatch):
     responder = CamfrogAutoResponder(controller)
     config = _config()
     config["auto_respond"]["reply_text"] = "First line\nSecond line"
-    monkeypatch.setattr(auto_respond.os, "name", "nt")
+    monkeypatch.setattr(auto_respond, "os", SimpleNamespace(name="nt"))
 
     _set_history(window, "Alice: Existing message")
     responder.poll_once(config)

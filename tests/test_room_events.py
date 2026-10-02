@@ -60,7 +60,7 @@ def test_room_event_monitor_uses_baseline_and_matches_only_new_lines(monkeypatch
     history = FakeElement("room-history")
     window = FakeWindow(history)
     monitor = CamfrogRoomEventMonitor(FakeController(window))
-    monkeypatch.setattr(room_events.os, "name", "nt")
+    monkeypatch.setattr(room_events, "os", SimpleNamespace(name="nt"))
     monkeypatch.setattr(room_events, "_history_lines", lambda _control: lines[0])
 
     events, state = monitor.poll_once(config())
@@ -80,7 +80,7 @@ def test_room_event_monitor_uses_baseline_and_matches_only_new_lines(monkeypatch
 
 def test_room_event_monitor_requires_visible_room_selectors(monkeypatch):
     monitor = CamfrogRoomEventMonitor(FakeController(FakeWindow(FakeElement("room-history"))))
-    monkeypatch.setattr(room_events.os, "name", "nt")
+    monkeypatch.setattr(room_events, "os", SimpleNamespace(name="nt"))
     invalid = config()
     invalid["auto_respond"]["room"]["history_automation_id"] = ""
 
