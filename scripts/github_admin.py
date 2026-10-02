@@ -17,7 +17,9 @@ DEFAULT_REPO = "cvsz/zcsc"
 DEFAULT_BRANCH = "main"
 REQUIRED_CHECKS = (
     "repository-baseline",
+    "test",
     "Analyze GitHub Actions",
+    "CodeQL",
     "dependency-review",
 )
 

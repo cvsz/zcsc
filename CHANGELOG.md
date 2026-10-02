@@ -5,6 +5,7 @@
 ### Fixed — PR review follow-up
 
 - Route Windows copy/cut/paste in every Entry/Text editor through `CF_UNICODETEXT`; cancel paste when Unicode text is unavailable instead of accepting a lossy ANSI representation.
+- Require the Windows application test and CodeQL checks in the repository administration helper, matching the checks observed on pull requests. Add the verified `policedbc` collaborator as a second code owner so independent approval is possible when `cvsz` authors a change.
 - Reject generic UIA ComboBoxes as Camfrog status targets unless an exact automation ID or observed status value identifies them. Refuse background and coordinate fallbacks when UIA exposes an unverified generic target.
 - Keep the dashboard visible when the tray fails to start, restore it if the tray thread later stops, and exit on close rather than leaving an unreachable hidden process.
 - Allow the first auto-reply, moderation alert, or room-event alert immediately after startup; begin cooldown checks only after a prior action has a timestamp.
