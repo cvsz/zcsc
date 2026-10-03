@@ -1,3 +1,7 @@
+import json
+
+import pytest
+
 from system.config_store import ConfigStore, DEFAULT_CONFIG
 
 
@@ -7,9 +11,24 @@ def test_corrupt_config_is_backed_up_and_recovered(tmp_path, monkeypatch):
     store.dir.mkdir(parents=True)
     store.path.write_text("{broken", encoding="utf-8")
     data = store.load()
-    assert data["schema_version"] == 2
+    assert data["schema_version"] == 3
     assert store.path.exists()
     assert list(store.dir.glob("config.corrupt-*.json"))
+
+
+@pytest.mark.parametrize("ui_value", [None, ["TH"], "TH", 1])
+def test_valid_json_with_wrong_ui_shape_is_backed_up_and_recovered(tmp_path, monkeypatch, ui_value):
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    store = ConfigStore()
+    store.dir.mkdir(parents=True)
+    store.path.write_text(json.dumps({"ui": ui_value}), encoding="utf-8")
+
+    data = store.load()
+
+    assert data["ui"] == {"language": "EN"}
+    backups = list(store.dir.glob("config.corrupt-*.json"))
+    assert backups
+    assert json.loads(backups[0].read_text(encoding="utf-8")) == {"ui": ui_value}
 
 
 def test_config_clamps_rotation_and_target(tmp_path, monkeypatch):
@@ -25,9 +44,55 @@ def test_config_clamps_rotation_and_target(tmp_path, monkeypatch):
     assert data["advanced"]["apply_timeout_seconds"] == 30
     assert data["status"]["rotation"]["interval_seconds"] == 5
     assert data["status"]["rotation"]["mode"] == "sequential"
+    assert data["status"]["rotation"]["source"] == "messages"
     assert data["status"]["presets"] == ["A"]
     assert data["target"]["fallback_relative_x"] == 1.0
     assert data["target"]["fallback_relative_y"] == 0.0
+
+
+def test_schema_two_config_migrates_status_source_and_marquee_settings(tmp_path, monkeypatch):
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    store = ConfigStore()
+    store.dir.mkdir(parents=True)
+    legacy = {
+        "schema_version": 2,
+        "status": {
+            "rotation": {"mode": "random", "interval_seconds": 30},
+            "styles": {"marquee": True, "marquee_frame_interval_seconds": 10},
+            "editor_messages": ["one", "two", "three", "four"],
+        },
+    }
+    store.path.write_text(json.dumps(legacy), encoding="utf-8")
+
+    migrated = store.load()
+
+    assert migrated["schema_version"] == 3
+    assert migrated["status"]["rotation"]["source"] == "messages"
+    assert migrated["status"]["rotation"]["mode"] == "random"
+    assert migrated["status"]["styles"]["marquee_single_character"] is True
+    assert migrated["status"]["styles"]["marquee_frame_interval_seconds"] == 10
+    assert migrated["status"]["editor_messages"] == ["one", "two", "three", "four"]
+
+    store.save(migrated)
+
+    persisted = json.loads(store.path.read_text(encoding="utf-8"))
+    assert persisted["schema_version"] == 3
+    assert persisted["status"]["rotation"]["source"] == "messages"
+
+
+def test_schema_one_config_migrates_legacy_message_rows_before_default_merge(tmp_path, monkeypatch):
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    store = ConfigStore()
+    store.dir.mkdir(parents=True)
+    store.path.write_text(
+        json.dumps({"schema_version": 1, "status": {"editor_lines": ["old one", "old two"]}}),
+        encoding="utf-8",
+    )
+
+    migrated = store.load()
+
+    assert migrated["schema_version"] == 3
+    assert migrated["status"]["editor_messages"] == ["old one", "old two", "", ""]
 
 
 def test_standard_status_selection_round_trips_through_config(tmp_path, monkeypatch):
@@ -54,6 +119,24 @@ def test_bad_word_auto_kick_is_opt_in_and_strict_boolean():
 
     data = ConfigStore._merge(DEFAULT_CONFIG, {"bad_word_moderation": {"auto_kick": True}})
     assert ConfigStore.validate(data)["bad_word_moderation"]["auto_kick"] is True
+
+
+def test_invalid_room_nicknames_are_not_normalized_or_coerced_into_command_targets():
+    data = ConfigStore._merge(
+        DEFAULT_CONFIG,
+        {
+            "room_actions": {
+                "owner_nickname": " Owner ",
+                "target_nicknames": {"kick": None, "ban": "Alice\n"},
+            }
+        },
+    )
+
+    validated = ConfigStore.validate(data)
+
+    assert validated["room_actions"]["owner_nickname"] == ""
+    assert validated["room_actions"]["target_nicknames"]["kick"] == ""
+    assert validated["room_actions"]["target_nicknames"]["ban"] == ""
 
 
 def test_default_bad_word_terms_include_thai_and_english_but_moderation_stays_opt_in(tmp_path, monkeypatch):
@@ -93,9 +176,9 @@ def test_room_control_profile_fields_are_sanitized():
     data = ConfigStore._merge(DEFAULT_CONFIG, {
         "room_actions": {
             "room_title": "  Example Room\x00 ",
-            "owner_nickname": " RoomOwner_1 ",
-            "target_nicknames": {
-                "friend": " Friend-7 ",
+                "owner_nickname": "RoomOwner_1",
+                "target_nicknames": {
+                    "friend": "Friend-7",
                 "kick": "Bad Nick",
             },
         },

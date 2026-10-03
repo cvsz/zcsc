@@ -82,6 +82,56 @@ def _history_lines(control) -> tuple[str, ...]:
     return tuple(clean[-300:])
 
 
+def _history_rows(control) -> tuple[str, ...] | None:
+    """Return visible UIA row values only when row boundaries are explicit.
+
+    A value containing embedded line breaks is ambiguous: it may combine a
+    message body with text from another message. Callers must not split it into
+    independently attributable senders.
+    """
+    try:
+        is_visible = getattr(control, "is_visible", None)
+        if callable(is_visible) and not is_visible():
+            return None
+        descendants = list(control.descendants())
+    except Exception:
+        return None
+
+    controls_by_type: dict[str, list[Any]] = {"ListItem": [], "Text": []}
+    for child in descendants:
+        try:
+            control_type = str(child.element_info.control_type)
+            if control_type not in controls_by_type:
+                continue
+            is_visible = getattr(child, "is_visible", None)
+            if callable(is_visible) and not is_visible():
+                continue
+            controls_by_type[control_type].append(child)
+        except Exception:
+            continue
+
+    values: list[str] = []
+    for control_type in ("ListItem", "Text"):
+        values = [
+            value
+            for child in controls_by_type[control_type]
+            if (value := _control_value(child)).strip()
+        ]
+        if values:
+            break
+    if not values:
+        return None
+
+    rows: list[str] = []
+    for value in values:
+        if "\n" in value or "\r" in value:
+            return None
+        row = value.strip()[:1024]
+        if row and (not rows or rows[-1] != row):
+            rows.append(row)
+    return tuple(rows[-300:])
+
+
 def _new_lines(previous: tuple[str, ...], current: tuple[str, ...]) -> tuple[str, ...]:
     if not current:
         return ()

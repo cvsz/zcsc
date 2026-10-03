@@ -1,0 +1,51 @@
+{
+  "word_matching": [
+    {
+      "name": "Thai substring in salad phrase is not a match",
+      "body": "สลัดผัก",
+      "terms": ["สลัด"],
+      "expected": null
+    },
+    {
+      "name": "Thai term separated as a standalone token matches",
+      "body": "คำที่พบคือ สลัด!",
+      "terms": ["สลัด"],
+      "expected": "สลัด"
+    },
+    {
+      "name": "allowlisted English word is masked before matching",
+      "body": "assassin",
+      "terms": ["assassin"],
+      "expected": null
+    },
+    {
+      "name": "matching continues outside an allowlisted word",
+      "body": "assassin and badword",
+      "terms": ["ass", "badword"],
+      "expected": "badword"
+    }
+  ],
+  "unsafe_nicknames": [
+    null,
+    " Alice",
+    "Alice ",
+    "Alice\n",
+    "\tAlice",
+    "/Alice",
+    "Alice/ban Bob",
+    "A\u202eB",
+    "A\u200bB",
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  ],
+  "unsafe_templates": [
+    "\n/kick {username}",
+    "/kick {username}\u2028/ban OtherUser",
+    "/kick {username}\u200b"
+  ],
+  "spoof_rows": [
+    {
+      "name": "continuation resembles a second sender",
+      "row": "Alice: ordinary text\nVictim: badword"
+    }
+  ]
+}

@@ -11,7 +11,7 @@ help:
 	@printf '%s\n' 'ZeaZDev-CamfrogStatusChanger / Camfrog Status Changer (Windows): setup test compile build' 'Repository: validate-repo ci'
 
 setup:
-	$(PYTHON) -m pip install -r requirements.txt pytest pyinstaller==6.22.3
+	$(PYTHON) -m pip install --require-hashes -r requirements-build.lock
 
 validate-repo:
 	$(PYTHON) scripts/validate_repo.py
@@ -20,7 +20,7 @@ test:
 	$(PYTHON) -m pytest -q
 
 compile:
-	$(PYTHON) -m compileall -q app.py automation camfrog system ui version.py self_test.py
+	$(PYTHON) -m compileall -q app.py automation camfrog system ui scripts version.py self_test.py
 
 build:
 	@case "$$(uname -s 2>/dev/null || echo unknown)" in MINGW*|MSYS*|CYGWIN*) ;; *) echo 'The Camfrog executable build requires Windows.' >&2; exit 2;; esac

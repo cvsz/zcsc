@@ -6,12 +6,25 @@ Version: 2.2.5-rc11
 
 ## Current audit evidence (2026-10-02)
 
-- On 2026-10-02, `make ci` passed in this working tree on Python 3.14.4: repository structure/link validation, 150 tests, and `compileall`. The Windows build and live Camfrog behavior still require exact-head Windows/runtime evidence.
+- Latest P4 reviewer-follow-up local checks: 302 pytest tests passed; `pip-audit` reported no known vulnerabilities, and `compileall` plus `scripts/validate_repo.py` passed. Implementation commit `1a127c6c3d43fa0364931063ed15ae798ed07f7e` passed all required GitHub checks and the Windows x64 workflow. Its RC11 executable is 21,107,220 bytes with SHA-256 `bd72a627db812816df64d0e2446a62039951bacbb646f5d391e13b901d4c8219` and PE32+ x64 format. This candidate was not launched or code-signed; live Camfrog behavior remains unverified. The earlier manual Windows 11 Enterprise build below predates the current reviewer fixes and is historical evidence only.
+- P4 verifies the foreground PID and exact status Edit immediately before Enter; when UIA cannot uniquely identify an Edit, its foreground route sends no keyboard input. Coordinate fallbacks require confirmed per-monitor-v2 DPI awareness and a uniquely identified Edit; concurrent status sends serialize behind the monotonic minimum interval, and rotation windows use aware local time. The history-source and one-character marquee settings use config schema 3 migrations from schema 1 and 2; no runtime dependency changed.
+- Pre-push audit follow-up blocks background coordinate clicks, pastes, and Enter when no Edit is identifiable. Local and exact implementation-head Windows checks pass.
+- The P4 reviewer follow-up loads `win32con` in native combo notifications, restores the clipboard if coordinate fallback exits before Enter, and cancels a rotation still queued on the status lock. Four new regressions and the 302-test local suite pass; the exact implementation-head Windows build passed. All interaction tests use fakes and do not verify live Camfrog behavior.
+- P5 creates the dump directory, fails with nonzero status on scan/storage/write errors or zero scanned keys, filters sensitive key branches, and provides opt-in email/phone-like/URL redaction. Default dumps still contain personal status text and source metadata; never share them. No config schema or dependency changed.
+- An earlier `make ci` snapshot on 2026-10-02 passed 150 tests on Python 3.14.4; the current 302-test post-follow-up run supersedes that count. The Windows build and live Camfrog behavior still require exact-head Windows/runtime evidence.
 - Python compile checks, repository structure/local Markdown link validation, YAML parsing for 13 workflow/config files, and isolated Ruff correctness/syntax checks passed.
-- Bandit reported no medium/high-severity findings; pip-audit reported no known vulnerabilities in the pinned requirements after upgrading Pillow.
+- A prior Bandit run reported no medium/high-severity findings. The current P7 `pip-audit` run reported no known vulnerabilities in the hash-locked build dependencies.
 - A prior RC11 Windows workflow run passed 146 tests and 3 subtests and built a Windows x64 executable with PyInstaller 6.22.3. Its executable and manifest are workflow artifacts, not files in the Git checkout; re-run the workflow on the exact release candidate before release.
 - The executable was not launched against Camfrog. UIA controls, live status submission, room commands, server-visible behavior, code signing, and antivirus behavior remain unverified.
 - Previously built RC10/RC11 executables are historical candidates and do not establish evidence for a later source commit.
+
+## P7 Windows validation build (2026-10-02; not a release artifact)
+
+- [x] A sanitized worktree bundle based on HEAD `1a9c27455ea88fe3c3f4d0d69d21963a3604f14f` was copied to Windows 11 Enterprise x64; the local and host archive hashes matched (`9e11db66815d1212c0248ab53197336975939b05b84529a91079fed12ddb2e7b`). The bundle omitted `.git`, generated build outputs, and archived binaries.
+- [x] The Windows builder ran with Python 3.11.9. All 295 pytest tests passed, `pip-audit` found no known vulnerabilities, and compile checks plus `scripts/validate_repo.py` passed.
+- [x] The validation EXE is 17,308,673 bytes, has SHA-256 `ee006569d8d36fcdcc650823246e390f9f7a8503009eca12b50100d37e14fcc0`, and is PE x64 (`0x8664`). The generated release manifest contains the same SHA-256.
+- [ ] Exact-head GitHub Actions evidence remains pending; the repository workflow pins Python 3.12 and this host has Python 3.11.9. The build bundle had no Git metadata, so the result is not an exact committed-revision build.
+- [ ] The validation EXE was not launched, signed, or released. Camfrog UI, live status acceptance, and room behavior remain unverified.
 
 ## Evidence from the earlier RC10 candidate
 

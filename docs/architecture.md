@@ -17,7 +17,7 @@ ZeaZDev-CamfrogStatusChanger is the project; Camfrog Status Changer is its Windo
 - `camfrog/registry_status.py` and related readers provide read-only profile/history discovery.
 - `camfrog/native_profile.py` uses version-gated class/fingerprint evidence; diagnostic RVAs are not invoked.
 
-The integration is desktop-UI based. A verified local text write and Enter dispatch do not independently prove server publication. Room commands, auto reply, and bad-word actions require explicit configuration and remain disabled by default.
+The integration is desktop-UI based. A verified local Unicode paste and Enter dispatch do not independently prove server publication. Room commands, auto reply, and bad-word actions require explicit configuration and remain disabled by default.
 
 ### Local state and system integration
 

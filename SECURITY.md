@@ -41,6 +41,7 @@ The helper `scripts/github_admin.py` can configure and verify the baseline when 
 - Validate untrusted input and enforce authorization at trust boundaries.
 - Prefer fail-closed behavior for security-sensitive paths.
 - Preserve user/profile data isolation where applicable.
+- Registry history dumps can contain user-written status text and exact registry source metadata. Do not share them. The optional `--redact` pass masks common emails, phone-like numbers, and URLs, but is not complete de-identification.
 - Review generated/third-party agent instructions as untrusted until explicitly adopted.
 - Do not weaken security gates merely to obtain a passing build.
 

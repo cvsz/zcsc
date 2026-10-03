@@ -94,6 +94,7 @@ def test_config_sync_saves_selected_standard_status_id(tmp_path, monkeypatch):
         interval_unit_var=FakeVar("minutes"),
         interval_var=FakeVar("10"),
         mode_var=FakeVar("sequential"),
+        rotation_source_var=FakeVar("Camfrog Status History (random)"),
         schedule_enabled_var=FakeVar(False),
         schedule_start_var=FakeVar("08:00"),
         schedule_end_var=FakeVar("23:00"),
@@ -106,7 +107,8 @@ def test_config_sync_saves_selected_standard_status_id(tmp_path, monkeypatch):
         custom_color_var=FakeVar(False),
         custom_color_value=FakeVar("#00C7BE"),
         marquee_var=FakeVar(False),
-        marquee_frame_interval_var=FakeVar("10"),
+        marquee_single_character_var=FakeVar(True),
+        marquee_frame_interval_var=FakeVar("5"),
         auto_respond_enabled_var=FakeVar(True),
         auto_respond_private_var=FakeVar(True),
         auto_respond_room_var=FakeVar(True),
@@ -148,12 +150,16 @@ def test_config_sync_saves_selected_standard_status_id(tmp_path, monkeypatch):
         controller=SimpleNamespace(),
         _unit_internal=AppUI._unit_internal,
         _mode_internal=AppUI._mode_internal,
+        _rotation_source_internal=AppUI._rotation_source_internal,
     )
 
     store.save(AppUI._sync_ui_to_config(app))
 
     saved = store.load()
     assert saved["status"]["standard_status_id"] == "welcome"
+    assert saved["status"]["rotation"]["source"] == "camfrog_history"
+    assert saved["status"]["rotation"]["mode"] == "random"
+    assert saved["status"]["styles"]["marquee_single_character"] is True
     assert saved["auto_respond"]["enabled"] is True
     assert saved["auto_respond"]["reply_text"] == "First line\nSecond line"
     assert saved["auto_respond"]["own_username"] == "TestNick"
@@ -227,6 +233,7 @@ def test_room_action_and_bad_word_settings_round_trip(tmp_path, monkeypatch):
         controller=SimpleNamespace(),
         _unit_internal=AppUI._unit_internal,
         _mode_internal=AppUI._mode_internal,
+        _rotation_source_internal=AppUI._rotation_source_internal,
     )
 
     store.save(AppUI._sync_ui_to_config(app))
@@ -330,6 +337,22 @@ def test_each_message_apply_row_uses_the_normal_send_worker(monkeypatch):
         (app._apply_worker, (f"message {index}",), True)
         for index in range(1, 5)
     ]
+
+
+def test_history_rotation_uses_camfrog_status_history_rows_only():
+    app = SimpleNamespace(
+        rotation_source_var=FakeVar("Camfrog Status History (random)"),
+        _history_values=["Old status", "Old status", "New status", "  "],
+        _rotation_source_internal=AppUI._rotation_source_internal,
+    )
+    config = {
+        "status": {
+            "rotation": {"source": "camfrog_history"},
+            "editor_messages": ["message slot 1"],
+        }
+    }
+
+    assert AppUI._rotation_messages(app, config) == ["Old status", "New status"]
 
 
 def test_enter_from_each_message_row_uses_the_same_send_handler():
