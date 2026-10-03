@@ -16,8 +16,12 @@ from .background_win32 import (
 )
 from .native_profile import identify_profile
 from status_text import comparable_status
+from system.dpi_awareness import per_monitor_v2_ready
 
 log = logging.getLogger(__name__)
+
+FOREGROUND_VERIFY_TIMEOUT_SECONDS = 1.0
+FOREGROUND_VERIFY_POLL_SECONDS = 0.025
 
 _TOV_SAFE_ACTION_TITLES = {
     "apply",
@@ -57,25 +61,109 @@ class UnverifiedStatusControlError(RuntimeError):
 
 
 class CamfrogController:
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, *, clock=None):
         self.config = config
+        self.clock = clock
         self._apply_lock = threading.Lock()
         self._last_send_monotonic = 0.0
+
+    def _monotonic(self) -> float:
+        return float(self.clock.monotonic()) if self.clock is not None else time.monotonic()
+
+    def _sleep(self, seconds: float) -> None:
+        if self.clock is not None:
+            self.clock.sleep(seconds)
+        else:
+            time.sleep(seconds)
+
+    @staticmethod
+    def _is_cancelled(cancelled) -> bool:
+        return bool(cancelled and cancelled())
+
+    def _acquire_apply_lock(self, cancelled=None) -> bool:
+        """Acquire the send lock while allowing a stopped rotation to exit."""
+        if cancelled is None:
+            self._apply_lock.acquire()
+            return True
+        while not self._is_cancelled(cancelled):
+            if self._apply_lock.acquire(timeout=0.05):
+                if self._is_cancelled(cancelled):
+                    self._apply_lock.release()
+                    return False
+                return True
+        return False
 
     def client_processes(self):
         executable = str(self.config.get("camfrog", {}).get("executable", "")).strip()
         return find_processes(executable_path=executable or None)
 
-    def _wait_for_send_slot(self) -> None:
+    def _wait_for_send_slot(self, cancelled=None) -> bool:
         """Enforce spacing between Camfrog send attempts instead of dropping early ones."""
         minimum = max(1, int(self.config.get("advanced", {}).get("minimum_interval_seconds", 5)))
         while self._last_send_monotonic:
-            remaining = minimum - (time.monotonic() - self._last_send_monotonic)
+            if self._is_cancelled(cancelled):
+                return False
+            remaining = minimum - (self._monotonic() - self._last_send_monotonic)
             if remaining <= 0:
                 break
             log.info("Waiting %.2fs before the next Camfrog status send", remaining)
-            time.sleep(remaining)
-        self._last_send_monotonic = time.monotonic()
+            self._sleep(min(remaining, 0.05) if cancelled is not None else remaining)
+        if self._is_cancelled(cancelled):
+            return False
+        # Reserve this slot as well as recording the actual dispatch below. If
+        # preparation later fails, retrying still observes the send guard.
+        self._last_send_monotonic = self._monotonic()
+        return True
+
+    def _record_send_time(self) -> None:
+        """Record the dispatch time so the next request spaces actual sends."""
+        self._last_send_monotonic = self._monotonic()
+
+    def _foreground_status_snapshot(self, window, editor, expected: str) -> tuple[bool, str, str]:
+        """Check process ownership and the exact editor value before an Enter."""
+        try:
+            import win32gui
+
+            expected_pid = int(window.process_id())
+            main_hwnd = int(window.handle)
+            edit_hwnd = int(editor.handle)
+            if not expected_pid or not edit_hwnd or not win32gui.IsWindow(edit_hwnd):
+                return False, "", "the verified Camfrog Edit handle is no longer valid"
+
+            _thread_id, main_pid = win32gui.GetWindowThreadProcessId(main_hwnd)
+            _thread_id, edit_pid = win32gui.GetWindowThreadProcessId(edit_hwnd)
+            if int(main_pid) != expected_pid or int(edit_pid) != expected_pid:
+                return False, "", "the selected status Edit no longer belongs to the selected Camfrog process"
+
+            observed = self._read_value(editor).strip()
+            if comparable_status(observed) != comparable_status(expected):
+                return False, observed, "the status Edit text changed after verification"
+
+            foreground_hwnd = int(win32gui.GetForegroundWindow() or 0)
+            if not foreground_hwnd:
+                return False, observed, "Windows has no foreground window"
+            _thread_id, foreground_pid = win32gui.GetWindowThreadProcessId(foreground_hwnd)
+            if int(foreground_pid) != expected_pid:
+                return False, observed, "another process owns the foreground window"
+            return True, observed, ""
+        except Exception as exc:
+            return False, "", f"foreground or status Edit verification failed: {exc}"
+
+    def _wait_for_foreground_status(self, window, editor, expected: str) -> tuple[bool, str, str]:
+        """Poll foreground ownership briefly, then validate the editor again."""
+        deadline = self._monotonic() + FOREGROUND_VERIFY_TIMEOUT_SECONDS
+        observed = ""
+        reason = "another process owns the foreground window"
+        while True:
+            ready, observed, reason = self._foreground_status_snapshot(window, editor, expected)
+            if ready:
+                return True, observed, ""
+            if reason != "another process owns the foreground window":
+                return False, observed, reason
+            remaining = deadline - self._monotonic()
+            if remaining <= 0:
+                return False, observed, reason
+            self._sleep(min(FOREGROUND_VERIFY_POLL_SECONDS, remaining))
 
     def ensure_running(self) -> ChangeResult:
         if self.client_processes():
@@ -567,11 +655,20 @@ class CamfrogController:
             self._apply_lock.release()
 
     def _coordinate_fallback(self, win, value: str) -> None:
+        if not per_monitor_v2_ready():
+            raise RuntimeError(
+                "Coordinate fallback is disabled until per-monitor v2 DPI awareness is confirmed"
+            )
+
         target = self.config.get("target", {})
         rx = float(target.get("fallback_relative_x", 0.50))
         ry = float(target.get("fallback_relative_y", 0.19))
         if not (0.0 <= rx <= 1.0 and 0.0 <= ry <= 1.0):
             raise RuntimeError("Fallback relative coordinates must be between 0.0 and 1.0")
+
+        # Do not use a coordinate click as permission to edit an unknown field.
+        ctrl = self._find_target(win)
+        editor = self._find_status_editor(ctrl)
 
         try:
             win.restore()
@@ -597,22 +694,31 @@ class CamfrogController:
         except Exception:
             pass
 
-        mouse.click(button="left", coords=(x, y))
-        time.sleep(0.15)
-        send_keys("^a{BACKSPACE}")
-        pyperclip.copy(value)
-        send_keys("^v")
-        time.sleep(STATUS_INPUT_SETTLE_SECONDS)
-        send_keys("{ENTER}")
+        try:
+            mouse.click(button="left", coords=(x, y))
+            time.sleep(0.15)
+            send_keys("^a{BACKSPACE}")
+            pyperclip.copy(value)
+            send_keys("^v")
+            ready, observed, reason = self._wait_for_foreground_status(win, editor, value)
+            if not ready:
+                raise RuntimeError(
+                    f"Coordinate fallback could not verify Camfrog foreground and status text; Enter was not sent: {reason}"
+                )
+            ready, observed, reason = self._foreground_status_snapshot(win, editor, value)
+            if not ready:
+                raise RuntimeError(
+                    f"Coordinate fallback target changed before commit; Enter was not sent: {reason}"
+                )
+            send_keys("{ENTER}")
+        finally:
+            if old_clipboard is not None:
+                try:
+                    pyperclip.copy(old_clipboard)
+                except Exception:
+                    log.warning("Could not restore the clipboard after coordinate fallback")
 
-        if old_clipboard is not None:
-            try:
-                time.sleep(0.1)
-                pyperclip.copy(old_clipboard)
-            except Exception:
-                pass
-
-    def set_status(self, value: str) -> ChangeResult:
+    def set_status(self, value: str, *, cancelled=None) -> ChangeResult:
         value = value.replace("\x00", "")
         # Preserve intentional CRLF between line 1/2; only reject all-whitespace payloads.
         if not value.strip():
@@ -621,13 +727,24 @@ class CamfrogController:
         if len(value) > max_len:
             return ChangeResult(False, f"Status exceeds configured maximum length ({max_len})")
 
-        if not self._apply_lock.acquire(blocking=False):
-            return ChangeResult(False, "Another status change is already in progress")
+        # Apply and rotation requests are serialized instead of discarding the
+        # later request when both reach the sender in the same interval.
+        if not self._acquire_apply_lock(cancelled):
+            return ChangeResult(False, "Status change cancelled before sending", new_value=value)
         try:
+            if self._is_cancelled(cancelled):
+                return ChangeResult(False, "Status change cancelled before sending", new_value=value)
             running = self.ensure_running()
             if not running.ok:
                 return running
-            self._wait_for_send_slot()
+            if self._is_cancelled(cancelled):
+                return ChangeResult(False, "Status change cancelled before sending", new_value=value)
+            if cancelled is None:
+                self._wait_for_send_slot()
+            elif not self._wait_for_send_slot(cancelled=cancelled):
+                return ChangeResult(False, "Status change cancelled before sending", new_value=value)
+            if self._is_cancelled(cancelled):
+                return ChangeResult(False, "Status change cancelled before sending", new_value=value)
 
             try:
                 win = self.find_window()
@@ -643,9 +760,9 @@ class CamfrogController:
                 try:
                     ctrl = self._find_target(win)
                     previous = self._read_value(ctrl)
-                    # Use exactly one UIA writer. On Camfrog's custom combo,
-                    # ValuePattern and the child Edit can both target the same
-                    # native text box, so invoking both may duplicate input.
+                    # Use exactly one verified status editor. The payload is
+                    # clipboard-pasted once; ValuePattern/direct text writers
+                    # are deliberately not mixed with an editable child.
                     edit = None
                     try:
                         edit = self._find_status_editor(ctrl)
@@ -658,46 +775,76 @@ class CamfrogController:
                     except Exception as exc:
                         errors.append(f"UIA child Edit discovery: {exc}")
 
-                    setter = getattr(edit, "set_edit_text", None) if edit is not None else None
-                    if callable(setter):
+                    clipboard_text = None
+                    clipboard_captured = False
+                    if edit is None:
+                        # A combo may identify which Camfrog control is the
+                        # status selector, but it is not safe to send keyboard
+                        # input to it when UIA cannot uniquely identify its
+                        # editable child. Let the guarded background path try.
+                        errors.append("UIA commit skipped because no unique status Edit control was identified")
+                    else:
                         try:
-                            setter(value)
+                            import pyperclip
+                            from pywinauto.keyboard import send_keys
+
+                            clipboard_text = pyperclip.paste()
+                            clipboard_captured = True
+                            # Camfrog's custom status editor has rejected direct
+                            # UIA text writes on some builds. Paste the complete
+                            # Unicode string into the unique verified editor,
+                            # then read it back before allowing one Enter commit.
+                            win.restore()
+                            win.set_focus()
+                            edit.set_focus()
+                            time.sleep(0.15)
+                            pyperclip.copy(value)
+                            send_keys("^a{BACKSPACE}")
+                            send_keys("^v")
                             time.sleep(0.10)
                             observed = self._read_value(edit).strip()
                             if comparable_status(observed) == comparable_status(value):
                                 verified_editor = edit
-                                log.info("UIA child Edit text verified; committing without a second text write")
+                                log.info("UIA clipboard-pasted status text verified")
                             else:
-                                errors.append(f"UIA child Edit verification read {observed!r}")
+                                errors.append(f"UIA clipboard paste verification read {observed!r}")
                         except Exception as exc:
-                            errors.append(f"UIA child Edit set failed: {exc}")
-                    elif edit is None:
-                        # Non-editable controls may expose ValuePattern. Do not
-                        # combine it with a child Edit write on the same control.
-                        try:
-                            iface_value = getattr(ctrl, "iface_value", None)
-                            if iface_value is not None:
-                                iface_value.SetValue(value)
-                                time.sleep(0.10)
-                                observed = self._read_value(ctrl).strip()
-                                if comparable_status(observed) == comparable_status(value):
-                                    verified_editor = ctrl
-                                    log.info("UIA ValuePattern text verified; committing without a second text write")
-                                else:
-                                    errors.append(f"UIA ValuePattern verification read {observed!r}")
-                        except Exception as exc:
-                            errors.append(f"UIA ValuePattern: {exc}")
+                            errors.append(f"UIA clipboard paste failed: {exc}")
+                        finally:
+                            if clipboard_captured:
+                                try:
+                                    pyperclip.copy(clipboard_text or "")
+                                except Exception:
+                                    log.warning("Could not restore the clipboard after status paste")
 
                     if verified_editor is not None:
                         try:
-                            # Camfrog's custom combo does not reliably treat a
-                            # background WM_KEYDOWN as a keyboard commit. The
-                            # UIA text write is already verified, so focus that
-                            # same editor and send exactly one real Enter.
-                            win.restore()
-                            win.set_focus()
+                            # Poll for the intended process and retain the exact
+                            # editor text; immediately recheck both before Enter.
                             verified_editor.set_focus()
-                            time.sleep(STATUS_INPUT_SETTLE_SECONDS)
+                            ready, observed, reason = self._wait_for_foreground_status(
+                                win, verified_editor, value
+                            )
+                            if not ready:
+                                return ChangeResult(
+                                    False,
+                                    f"Status commit aborted; Enter was not sent: {reason}",
+                                    previous,
+                                    value,
+                                )
+                            ready, observed, reason = self._foreground_status_snapshot(
+                                win, verified_editor, value
+                            )
+                            if not ready:
+                                return ChangeResult(
+                                    False,
+                                    f"Status commit aborted; Enter was not sent: {reason}",
+                                    previous,
+                                    value,
+                                )
+                            if self._is_cancelled(cancelled):
+                                return ChangeResult(False, "Status change cancelled before sending", previous, value)
+                            self._record_send_time()
                             verified_editor.type_keys("{ENTER}")
                             time.sleep(STATUS_COMMIT_SETTLE_SECONDS)
                             return ChangeResult(
@@ -707,7 +854,7 @@ class CamfrogController:
                                 value,
                             )
                         except Exception as exc:
-                            return ChangeResult(False, f"Verified status text was not retyped; foreground Enter failed: {exc}", previous, value)
+                            return ChangeResult(False, f"Verified status text was not committed; foreground Enter failed: {exc}", previous, value)
 
                     # UIA could not verify a value. The Win32 path now owns the
                     # single fallback write and commit attempt.
@@ -720,6 +867,8 @@ class CamfrogController:
 
                 if self.config.get("target", {}).get("background_enabled", True):
                     try:
+                        if self._is_cancelled(cancelled):
+                            return ChangeResult(False, "Status change cancelled before sending", previous, value)
                         hwnd = int(win.handle)
                         target = self.config.get("target", {})
                         result = set_status_background(
@@ -729,8 +878,10 @@ class CamfrogController:
                             value,
                             current_text=previous,
                             known_statuses=self.config.get("status", {}).get("presets", []),
+                            allow_coordinate_fallback=per_monitor_v2_ready(),
                         )
                         if result.ok and result.verified:
+                            self._record_send_time()
                             return ChangeResult(True, result.message, previous, value)
                         if getattr(result, "ambiguous", False):
                             return ChangeResult(False, f"Status change failed: {result.message}", previous, value)
@@ -741,7 +892,10 @@ class CamfrogController:
                 advanced = self.config.get("advanced", {})
                 if advanced.get("fallback_enabled", False):
                     try:
+                        if self._is_cancelled(cancelled):
+                            return ChangeResult(False, "Status change cancelled before sending", previous, value)
                         self._coordinate_fallback(win, value)
+                        self._record_send_time()
                         return ChangeResult(True, "Status changed using foreground fallback (not background-verified)", previous, value)
                     except Exception as exc:
                         errors.append(f"Foreground fallback: {exc}")

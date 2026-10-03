@@ -25,7 +25,13 @@ def in_time_window(now: time, start: time, end: time) -> bool:
 
 
 def rotation_is_allowed(rotation: dict, now: datetime | None = None) -> bool:
-    current = (now or datetime.now()).time().replace(second=0, microsecond=0)
+    local_now = now if now is not None else datetime.now().astimezone()
+    # Schedule values describe local wall-clock time. Keep an aware datetime
+    # through the conversion, then compare only its civil time so DST folds do
+    # not create aware/naive comparison errors or silently change the window.
+    if local_now.tzinfo is None:
+        local_now = local_now.astimezone()
+    current = local_now.timetz().replace(tzinfo=None, second=0, microsecond=0, fold=0)
     if rotation.get("schedule_enabled"):
         start = parse_hhmm(rotation.get("schedule_start", "08:00"), "08:00")
         end = parse_hhmm(rotation.get("schedule_end", "23:00"), "23:00")

@@ -36,7 +36,9 @@ def test_background_api_preserves_ambiguity_as_a_fail_closed_result(monkeypatch)
         ),
     )
 
-    result = background_win32.set_status_background(11, 0.5, 0.19, "hello")
+    result = background_win32.set_status_background(
+        11, 0.5, 0.19, "hello", allow_coordinate_fallback=True
+    )
 
     assert not result.ok
     assert result.ambiguous
@@ -73,32 +75,41 @@ def _install_background_send_mocks(monkeypatch, events, verify_results):
         "_paste_text",
         lambda hwnd, value: events.append(("paste", hwnd, value)),
     )
+    last_value = [""]
+
     def verify(*_args):
         result = next(verify_results)
+        last_value[0] = result[1]
         events.append(("verify", *result))
         return result
 
     monkeypatch.setattr(background_win32, "_verify_combo_value", verify)
+    monkeypatch.setattr(
+        background_win32,
+        "_read_text",
+        lambda hwnd: events.append(("read", hwnd)) or last_value[0],
+    )
     monkeypatch.setattr(background_win32.time, "sleep", lambda seconds: events.append(("sleep", seconds)))
 
 
 def test_native_status_waits_for_input_before_enter(monkeypatch):
     events = []
-    _install_background_send_mocks(monkeypatch, events, iter([(True, "hello"), (True, "hello")]))
+    _install_background_send_mocks(monkeypatch, events, iter([(True, "hello")]))
 
     result = background_win32._set_native_combo_text(11, 22, "hello")
 
     assert result.ok
-    text_set = next(i for i, event in enumerate(events) if event[:3] == ("send", 22, 0x000C))
+    paste = events.index(("paste", 22, "hello"))
     field_verified = next(i for i, event in enumerate(events) if event == ("verify", True, "hello"))
-    input_settle = events.index(("sleep", background_win32.STATUS_INPUT_SETTLE_SECONDS))
+    field_rechecked = events.index(("read", 22))
     enter = next(i for i, event in enumerate(events) if event == ("key", 22, 0x000D))
-    assert text_set < field_verified < input_settle < enter
+    assert paste < field_verified < field_rechecked < enter
+    assert not any(event == ("sleep", background_win32.STATUS_INPUT_SETTLE_SECONDS) for event in events)
 
 
-def test_native_status_uses_clipboard_paste_fallback_before_enter(monkeypatch):
+def test_native_status_uses_clipboard_paste_before_enter(monkeypatch):
     events = []
-    _install_background_send_mocks(monkeypatch, events, iter([(False, "old"), (True, "ab")]))
+    _install_background_send_mocks(monkeypatch, events, iter([(True, "ab")]))
 
     result = background_win32._set_native_combo_text(11, 22, "ab")
 
@@ -106,7 +117,7 @@ def test_native_status_uses_clipboard_paste_fallback_before_enter(monkeypatch):
     paste_index = events.index(("paste", 22, "ab"))
     field_verified = events.index(("verify", True, "ab"))
     enter = events.index(("key", 22, 0x000D))
-    assert events.index(("verify", False, "old")) < paste_index < field_verified < enter
+    assert paste_index < field_verified < enter
     assert not any(event[0] == "send" and event[2] == 0x0102 for event in events)
 
 
@@ -143,7 +154,7 @@ def test_paste_helper_restores_clipboard_and_uses_wm_paste(monkeypatch):
 
 def test_native_status_skips_commit_if_field_rejects_text(monkeypatch):
     events = []
-    _install_background_send_mocks(monkeypatch, events, iter([(False, "old"), (False, "old")]))
+    _install_background_send_mocks(monkeypatch, events, iter([(False, "old")]))
 
     result = background_win32._set_native_combo_text(11, 22, "new")
 
@@ -172,7 +183,6 @@ def test_background_edit_fallback_does_not_click_or_retype_after_enter(monkeypat
     events = []
     constants = SimpleNamespace(
         VK_RETURN=0x000D,
-        WM_SETTEXT=0x000C,
     )
     win32gui = SimpleNamespace(
         IsWindow=lambda hwnd: hwnd == 11,
@@ -185,23 +195,53 @@ def test_background_edit_fallback_does_not_click_or_retype_after_enter(monkeypat
     monkeypatch.setattr(background_win32, "_find_camfrog_status_combo", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(background_win32, "_smallest_child_at_point", lambda *_args: 22)
     monkeypatch.setattr(background_win32, "_find_edit_candidate", lambda _hwnd: 33)
-    monkeypatch.setattr(
-        background_win32,
-        "_send_timeout",
-        lambda hwnd, message, *_args, **_kwargs: events.append(("send", hwnd, message)),
-    )
+    monkeypatch.setattr(background_win32, "_paste_text", lambda hwnd, value: events.append(("paste", hwnd, value)))
+    monkeypatch.setattr(background_win32, "_notify_edit_parent", lambda hwnd: events.append(("notify", hwnd)))
     monkeypatch.setattr(background_win32, "_read_text", lambda hwnd: events.append(("read", hwnd)) or "hello")
     monkeypatch.setattr(background_win32, "_send_key", lambda hwnd, key, **_kwargs: events.append(("key", hwnd, key)))
     monkeypatch.setattr(background_win32.time, "sleep", lambda _seconds: None)
 
-    result = background_win32.set_status_background(11, 0.5, 0.19, "hello")
+    result = background_win32.set_status_background(
+        11, 0.5, 0.19, "hello", allow_coordinate_fallback=True
+    )
 
     assert result.ok and result.verified
     assert events == [
-        ("send", 33, constants.WM_SETTEXT),
+        ("paste", 33, "hello"),
+        ("notify", 33),
         ("read", 33),
         ("key", 33, constants.VK_RETURN),
     ]
+
+
+def test_background_edit_fallback_skips_commit_after_unverified_paste(monkeypatch):
+    events = []
+    monkeypatch.setitem(sys.modules, "win32con", SimpleNamespace(VK_RETURN=0x000D))
+    monkeypatch.setitem(
+        sys.modules,
+        "win32gui",
+        SimpleNamespace(
+            IsWindow=lambda hwnd: hwnd == 11,
+            GetWindowPlacement=lambda _hwnd: (0, 0, 0, 0, (0, 0, 100, 100)),
+        ),
+    )
+    monkeypatch.setattr(background_win32, "_require_windows", lambda: None)
+    monkeypatch.setattr(background_win32, "_find_camfrog_status_combo", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(background_win32, "_smallest_child_at_point", lambda *_args: 22)
+    monkeypatch.setattr(background_win32, "_find_edit_candidate", lambda _hwnd: 33)
+    monkeypatch.setattr(background_win32, "_paste_text", lambda hwnd, value: events.append(("paste", hwnd, value)))
+    monkeypatch.setattr(background_win32, "_notify_edit_parent", lambda hwnd: events.append(("notify", hwnd)))
+    monkeypatch.setattr(background_win32, "_read_text", lambda _hwnd: "old value")
+    monkeypatch.setattr(background_win32, "_send_key", lambda *args, **kwargs: events.append(("key", *args)))
+    monkeypatch.setattr(background_win32.time, "sleep", lambda _seconds: None)
+
+    result = background_win32.set_status_background(
+        11, 0.5, 0.19, "new value", allow_coordinate_fallback=True
+    )
+
+    assert not result.ok
+    assert "commit was skipped" in result.message
+    assert events == [("paste", 33, "new value"), ("notify", 33)]
 
 
 def test_verified_uia_commit_sends_one_enter_without_rewriting_or_extra_commit(monkeypatch):
@@ -212,10 +252,82 @@ def test_verified_uia_commit_sends_one_enter_without_rewriting_or_extra_commit(m
     monkeypatch.setattr(background_win32, "_send_key", lambda hwnd, key: events.append(("key", hwnd, key)))
     monkeypatch.setattr(background_win32, "_send_timeout", lambda *_args, **_kwargs: events.append(("write",)))
     monkeypatch.setattr(background_win32, "_notify_combo_parent", lambda *_args, **_kwargs: events.append(("notify",)))
+    monkeypatch.setattr(background_win32, "_read_text", lambda _hwnd: "hello")
     monkeypatch.setattr(background_win32.time, "sleep", lambda _seconds: None)
 
-    result = background_win32.commit_verified_ui_status_background(11, 22, 33, "hello")
+    result = background_win32.commit_verified_ui_status_background(
+        11, 22, 33, "hello", read_verified_text=lambda _hwnd: "hello"
+    )
 
     assert result.ok
     assert events == [("key", 33, 0x000D)]
     assert "not independently confirmed" in result.message
+
+
+def test_native_status_rechecks_target_text_immediately_before_enter(monkeypatch):
+    events = []
+    _install_background_send_mocks(monkeypatch, events, iter([(True, "hello")]))
+    monkeypatch.setattr(background_win32, "_read_text", lambda _hwnd: "changed after verification")
+
+    result = background_win32._set_native_combo_text(11, 22, "hello")
+
+    assert not result.ok
+    assert "commit was skipped" in result.message
+    assert not any(event[0] == "key" and event[2] == 0x000D for event in events)
+
+
+def test_coordinate_compatibility_path_requires_dpi_verification(monkeypatch):
+    calls = []
+    monkeypatch.setattr(background_win32, "_require_windows", lambda: None)
+    monkeypatch.setitem(sys.modules, "win32con", SimpleNamespace())
+    monkeypatch.setitem(
+        sys.modules,
+        "win32gui",
+        SimpleNamespace(
+            IsWindow=lambda _hwnd: True,
+            GetWindowPlacement=lambda _hwnd: calls.append("placement") or (0, 0, 0, 0, (0, 0, 100, 100)),
+        ),
+    )
+    monkeypatch.setattr(background_win32, "_find_camfrog_status_combo", lambda *_args, **_kwargs: None)
+
+    result = background_win32.set_status_background(11, 0.5, 0.19, "hello")
+
+    assert not result.ok
+    assert "per-monitor v2 DPI awareness" in result.message
+    assert calls == []
+
+
+def test_background_coordinate_fallback_never_commits_without_identified_edit(monkeypatch):
+    events = []
+    constants = SimpleNamespace(
+        VK_RETURN=0x000D,
+        WM_LBUTTONDOWN=0x0201,
+        WM_LBUTTONUP=0x0202,
+        MK_LBUTTON=1,
+    )
+    monkeypatch.setitem(sys.modules, "win32con", constants)
+    monkeypatch.setitem(
+        sys.modules,
+        "win32gui",
+        SimpleNamespace(
+            IsWindow=lambda _hwnd: True,
+            GetWindowPlacement=lambda _hwnd: (0, 0, 0, 0, (0, 0, 100, 100)),
+            ScreenToClient=lambda _hwnd, point: point,
+        ),
+    )
+    monkeypatch.setattr(background_win32, "_require_windows", lambda: None)
+    monkeypatch.setattr(background_win32, "_find_camfrog_status_combo", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(background_win32, "_smallest_child_at_point", lambda *_args: 22)
+    monkeypatch.setattr(background_win32, "_find_edit_candidate", lambda _hwnd: None)
+    monkeypatch.setattr(background_win32, "_paste_text", lambda hwnd, value: events.append(("paste", hwnd, value)))
+    monkeypatch.setattr(background_win32, "_send_timeout", lambda *args, **kwargs: events.append(("message", *args)))
+    monkeypatch.setattr(background_win32, "_read_text", lambda _hwnd: "hello")
+    monkeypatch.setattr(background_win32, "_send_key", lambda *args, **kwargs: events.append(("key", *args)))
+
+    result = background_win32.set_status_background(
+        11, 0.5, 0.19, "hello", allow_coordinate_fallback=True
+    )
+
+    assert not result.ok
+    assert not result.verified
+    assert events == []

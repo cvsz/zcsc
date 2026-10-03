@@ -15,22 +15,23 @@ In PowerShell, from the repository root:
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt pytest pyinstaller==6.22.3
+python -m pip install --require-hashes -r requirements-build.lock
 .\run_dev.bat
 ```
 
-The app stores its settings at `%APPDATA%\CamfrogStatusChanger\config.json` on Windows, or `~/.config/CamfrogStatusChanger/config.json` when `APPDATA` is unset. Review local settings and logs before sharing them; they may contain personal status text, nicknames, room names, or UI selectors.
+The app stores its settings at `%APPDATA%\CamfrogStatusChanger\config.json` on Windows, or `~/.config/CamfrogStatusChanger/config.json` when `APPDATA` is unset. Logs normally go to `%APPDATA%\CamfrogStatusChanger\logs\app.log`; if that location cannot be opened, the app falls back to `%TEMP%\CamfrogStatusChanger\logs\app.log`. Review local settings and logs before sharing them; they may contain personal status text, nicknames, room names, or UI selectors.
+
+If a valid JSON config has values in an unexpected shape, the app backs it up and recovers with safe defaults. Config saves use an atomic temporary file and retry a short-lived Windows file lock; if all retries fail, the prior config is kept and the temporary file may remain for recovery.
 
 ## Build and validate
 
 ```powershell
 python -m pytest -q
-python -m compileall -q app.py automation camfrog system ui version.py self_test.py
+python -m compileall -q app.py automation camfrog system ui scripts version.py self_test.py
 .\build_exe.bat
 ```
 
-The Windows workflow also runs the tests, builds the executable, creates a SHA-256 manifest, and uploads a temporary artifact. Build outputs are not committed to Git.
+The Windows workflow and local batch entrypoints run `scripts/build_windows.py`, which installs the hash-locked build dependencies, runs tests and compile checks, builds the executable in isolated staging directories, verifies the SHA-256 manifest, and publishes the EXE/manifest pair to `dist/`. The workflow uploads a temporary artifact. Build outputs are not committed to Git.
 
 On POSIX development hosts, use `python3 -m pytest -q`, `python3 -m compileall ...`, and `make validate-repo`. The executable build requires Windows.
 
@@ -43,6 +44,8 @@ On POSIX development hosts, use `python3 -m pytest -q`, `python3 -m compileall .
 5. Test status submission with a harmless value. A local UI write and Enter dispatch do not prove server-visible publication.
 
 Camfrog's UI and internal control behavior may change between client versions. Unknown controls must not be guessed; the status integration requires a positively identified control or an explicit configured automation ID.
+
+Automatic detection checks the supported per-user Camfrog install location, then known client executable names and legacy Program Files locations. If more than one window matches the selected client, close the extra client windows or select the intended executable; automation stops instead of guessing which account to control.
 
 ## Configuration and security
 

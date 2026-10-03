@@ -4,7 +4,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Callable, Iterable
 
 from status_text import comparable_status
 
@@ -31,10 +31,6 @@ class BackgroundResult:
 def _require_windows() -> None:
     if os.name != "nt":
         raise RuntimeError("Win32 background automation is available on Windows only")
-
-
-def _make_lparam(x: int, y: int) -> int:
-    return ((y & 0xFFFF) << 16) | (x & 0xFFFF)
 
 
 def _make_wparam(low: int, high: int) -> int:
@@ -296,13 +292,29 @@ def _verify_combo_value(combo_hwnd: int, value: str, retries: int = 4) -> tuple[
     return False, observed
 
 
-def _commit_status_input(target_hwnd: int) -> None:
-    """Send one Enter to the edited control after Camfrog consumes its text."""
+def _commit_status_input(
+    target_hwnd: int,
+    expected_value: str,
+    *,
+    read_value: Callable[[int], str] | None = None,
+) -> tuple[bool, str]:
+    """Poll a bounded time for the exact edit value, then dispatch one Enter."""
     import win32con
 
-    time.sleep(STATUS_INPUT_SETTLE_SECONDS)
-    _send_key(target_hwnd, win32con.VK_RETURN)
-    time.sleep(STATUS_COMMIT_SETTLE_SECONDS)
+    reader = read_value or _read_text
+    expected = comparable_status(expected_value)
+    deadline = time.monotonic() + STATUS_INPUT_SETTLE_SECONDS
+    observed = ""
+    while True:
+        observed = str(reader(target_hwnd) or "").strip()
+        if comparable_status(observed) == expected:
+            _send_key(target_hwnd, win32con.VK_RETURN)
+            time.sleep(STATUS_COMMIT_SETTLE_SECONDS)
+            return True, observed
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False, observed
+        time.sleep(min(0.025, remaining))
 
 
 def commit_verified_ui_status_background(
@@ -310,6 +322,8 @@ def commit_verified_ui_status_background(
     combo_hwnd: int,
     edit_hwnd: int,
     value: str,
+    *,
+    read_verified_text: Callable[[int], str] | None = None,
 ) -> BackgroundResult:
     """Commit UIA-verified text without writing or typing the payload again."""
     _require_windows()
@@ -327,41 +341,34 @@ def commit_verified_ui_status_background(
     # Commit with one Enter on the verified editor. Sending Enter to both the
     # edit and combo, followed by selection notifications and a button click,
     # can submit the same text multiple times or alter the editor contents.
-    _commit_status_input(edit_hwnd)
+    committed, observed = _commit_status_input(
+        edit_hwnd,
+        value,
+        read_value=read_verified_text,
+    )
+    if not committed:
+        return BackgroundResult(
+            False,
+            "Camfrog status Edit changed before Enter; commit was skipped",
+            combo_hwnd,
+            False,
+            observed,
+        )
     return BackgroundResult(
         True,
         "Status text verified; one Enter sent to Camfrog (server acceptance is not independently confirmed)",
         combo_hwnd,
         True,
-        value,
+        observed,
     )
 
 
 def _set_native_combo_text(parent_hwnd: int, combo_hwnd: int, value: str) -> BackgroundResult:
-    import win32con
-
     edit = _find_edit_candidate(combo_hwnd)
     target = edit or combo_hwnd
 
-    # Set text without activating Camfrog.
-    _send_timeout(target, win32con.WM_SETTEXT, 0, value, timeout_ms=1200)
-    if edit:
-        _notify_edit_parent(edit)
-
-    # Notify only edit changes until the control actually contains our payload.
-    _notify_combo_parent(parent_hwnd, combo_hwnd)
-    entered, observed = _verify_combo_value(combo_hwnd, value)
-    if entered:
-        _commit_status_input(target)
-        return BackgroundResult(
-            True,
-            "Status text verified before one Enter dispatch; server acceptance is not independently confirmed",
-            combo_hwnd,
-            True,
-            observed,
-        )
-    log.info("Camfrog status field did not accept WM_SETTEXT; trying clipboard paste")
-
+    # Prefer clipboard paste consistently with the foreground UIA path. Direct
+    # WM_SETTEXT is not accepted by every Camfrog status-combo build.
     _paste_text(target, value)
     if edit:
         _notify_edit_parent(edit)
@@ -376,7 +383,15 @@ def _set_native_combo_text(parent_hwnd: int, combo_hwnd: int, value: str) -> Bac
             observed,
         )
 
-    _commit_status_input(target)
+    committed, observed = _commit_status_input(target, value)
+    if not committed:
+        return BackgroundResult(
+            False,
+            "Camfrog status Edit changed before Enter; commit was skipped",
+            combo_hwnd,
+            False,
+            observed,
+        )
     return BackgroundResult(
         True,
         "Status text verified before one Enter dispatch; server acceptance is not independently confirmed",
@@ -394,6 +409,7 @@ def set_status_background(
     *,
     current_text: str = "",
     known_statuses: Iterable[str] = (),
+    allow_coordinate_fallback: bool = False,
 ) -> BackgroundResult:
     """Background-first Camfrog status edit without activating/restoring Camfrog."""
     _require_windows()
@@ -402,7 +418,6 @@ def set_status_background(
     if not (0.0 <= relative_x <= 1.0 and 0.0 <= relative_y <= 1.0):
         return BackgroundResult(False, "Relative target coordinates must be between 0.0 and 1.0")
 
-    import win32con
     import win32gui
 
     if not win32gui.IsWindow(parent_hwnd):
@@ -423,6 +438,13 @@ def set_status_background(
             if _class_name(combo).lower() == "ccomboboxts":
                 return result
 
+        if not allow_coordinate_fallback:
+            return BackgroundResult(
+                False,
+                "Coordinate fallback is disabled until per-monitor v2 DPI awareness is confirmed",
+                parent_hwnd,
+            )
+
         # Compatibility route for older/different builds.
         try:
             placement = win32gui.GetWindowPlacement(parent_hwnd)
@@ -441,38 +463,36 @@ def set_status_background(
         target_hwnd = _smallest_child_at_point(parent_hwnd, screen_x, screen_y)
         edit_hwnd = _find_edit_candidate(target_hwnd)
         if edit_hwnd:
-            _send_timeout(edit_hwnd, win32con.WM_SETTEXT, 0, value, timeout_ms=1200)
-            time.sleep(STATUS_INPUT_SETTLE_SECONDS)
-            observed = _read_text(edit_hwnd).strip()
-            if comparable_status(observed) == comparable_status(value):
-                _send_key(edit_hwnd, win32con.VK_RETURN)
-                time.sleep(STATUS_COMMIT_SETTLE_SECONDS)
+            # Keep compatibility builds on the same paste path as the native
+            # status control. A direct WM_SETTEXT can update a shadow value
+            # without populating Camfrog's actual editable status field.
+            _paste_text(edit_hwnd, value)
+            _notify_edit_parent(edit_hwnd)
+            committed, observed = _commit_status_input(edit_hwnd, value)
+            if not committed:
                 return BackgroundResult(
-                    True,
-                    "Status text verified before one Enter dispatch; server acceptance is not independently confirmed",
+                    False,
+                    "Background status Edit did not verify the pasted text; commit was skipped",
                     edit_hwnd,
-                    True,
+                    False,
                     observed,
                 )
+            return BackgroundResult(
+                True,
+                "Status text verified before one Enter dispatch; server acceptance is not independently confirmed",
+                edit_hwnd,
+                True,
+                observed,
+            )
 
-        # Last background-only compatibility attempt. Do not claim success without verification.
-        client_x, client_y = win32gui.ScreenToClient(target_hwnd, (screen_x, screen_y))
-        lp = _make_lparam(client_x, client_y)
-        _send_timeout(target_hwnd, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, lp)
-        _send_timeout(target_hwnd, win32con.WM_LBUTTONUP, 0, lp)
-        _paste_text(edit_hwnd or target_hwnd, value)
-        time.sleep(STATUS_INPUT_SETTLE_SECONDS)
-        observed = _read_text(edit_hwnd or target_hwnd).strip()
-        if comparable_status(observed) != comparable_status(value):
-            return BackgroundResult(False, "Background compatibility control did not accept the text; commit was skipped", target_hwnd, False, observed)
-        _send_key(edit_hwnd or target_hwnd, win32con.VK_RETURN)
-        time.sleep(STATUS_COMMIT_SETTLE_SECONDS)
+        # Coordinates alone do not establish that this is Camfrog's status
+        # editor. Never paste or send Enter to an unknown child/control.
         return BackgroundResult(
-            True,
-            "Status text verified before one Enter dispatch; server acceptance is not independently confirmed",
+            False,
+            "Background compatibility control has no uniquely identified Edit; paste and commit were skipped",
             target_hwnd,
-            True,
-            observed,
+            False,
+            _read_text(target_hwnd),
         )
     except AmbiguousNativeControlError as exc:
         return BackgroundResult(False, str(exc), parent_hwnd, False, "", True)

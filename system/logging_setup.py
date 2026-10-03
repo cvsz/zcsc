@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -13,14 +14,39 @@ def app_data_dir() -> Path:
 
 
 def configure_logging() -> Path:
-    log_dir = app_data_dir() / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / "app.log"
+    candidates = []
+    last_error = None
+    try:
+        candidates.append(app_data_dir() / "logs" / "app.log")
+    except Exception as exc:
+        last_error = exc
+    try:
+        candidates.append(Path(tempfile.gettempdir()) / "CamfrogStatusChanger" / "logs" / "app.log")
+    except Exception as exc:
+        last_error = last_error or exc
+    candidates = list(dict.fromkeys(candidates))
     root = logging.getLogger()
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    file_handler = None
+    log_path = None
+    for candidate in candidates:
+        try:
+            candidate.parent.mkdir(parents=True, exist_ok=True)
+            file_handler = RotatingFileHandler(
+                candidate, maxBytes=2 * 1024 * 1024, backupCount=5, encoding="utf-8"
+            )
+            log_path = candidate
+            break
+        except OSError as exc:
+            last_error = exc
+            if file_handler is not None:
+                file_handler.close()
+                file_handler = None
+    if file_handler is None or log_path is None:
+        raise OSError("Could not open app.log in the application data or temporary directory") from last_error
+
     root.setLevel(logging.INFO)
     root.handlers.clear()
-    fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
-    file_handler = RotatingFileHandler(log_path, maxBytes=2 * 1024 * 1024, backupCount=5, encoding="utf-8")
     file_handler.setFormatter(fmt)
     root.addHandler(file_handler)
     # Frozen/windowed builds intentionally avoid a console handler.

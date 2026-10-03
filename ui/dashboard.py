@@ -39,7 +39,7 @@ from status_catalog import (
     get_standard_status,
     standard_status_category_values,
 )
-from status_styles import apply_styles
+from status_styles import apply_styles, color_template_error
 
 log = logging.getLogger(__name__)
 
@@ -91,6 +91,7 @@ class AppUI(ctk.CTk):
         self._tray_thread: Optional[threading.Thread] = None
         self._exiting = False
         self._marquee_offset = 0
+        self._marquee_current_text = ""
         self._style_lock = threading.Lock()
 
         self.title("Camfrog Status Changer")
@@ -382,6 +383,9 @@ class AppUI(ctk.CTk):
         self.custom_color_var = tk.BooleanVar(value=False)
         self.custom_color_value = tk.StringVar(value="#00C7BE")
         self.marquee_var = tk.BooleanVar(value=False)
+        self.marquee_single_character_var = tk.BooleanVar(
+            value=bool(self.config_data.get("status", {}).get("styles", {}).get("marquee_single_character", True))
+        )
         self.random_color_check = ctk.CTkCheckBox(style_row, text="Random Color", variable=self.random_color_var, command=self._random_color_toggled)
         self.random_color_check.pack(side="left", padx=(0, 14))
         self.custom_color_check = ctk.CTkCheckBox(style_row, text="Custom Color", variable=self.custom_color_var, command=self._custom_color_toggled)
@@ -390,10 +394,17 @@ class AppUI(ctk.CTk):
         self.custom_color_button.pack(side="left", padx=(0, 14))
         self.marquee_check = ctk.CTkCheckBox(style_row, text="Marquee", variable=self.marquee_var, command=self._marquee_toggled)
         self.marquee_check.pack(side="left", padx=(0, 14))
-        self.marquee_frame_label = ctk.CTkLabel(style_row, text="Frame s")
+        self.marquee_single_character_check = ctk.CTkCheckBox(
+            style_row,
+            text="One character per frame",
+            variable=self.marquee_single_character_var,
+            command=self._marquee_toggled,
+        )
+        self.marquee_single_character_check.pack(side="left", padx=(0, 10))
+        self.marquee_frame_label = ctk.CTkLabel(style_row, text="Step s")
         self.marquee_frame_label.pack(side="left", padx=(0, 4))
         self.marquee_frame_interval_var = tk.StringVar(
-            value=str(self.config_data.get("status", {}).get("styles", {}).get("marquee_frame_interval_seconds", 10))
+            value=str(self.config_data.get("status", {}).get("styles", {}).get("marquee_frame_interval_seconds", 5))
         )
         ctk.CTkEntry(style_row, textvariable=self.marquee_frame_interval_var, width=55).pack(side="left", padx=(0, 8))
         self.language_label = ctk.CTkLabel(style_row, text="Language")
@@ -402,7 +413,7 @@ class AppUI(ctk.CTk):
         self.language_menu.pack(side="left")
         self.status_style_note = ctk.CTkLabel(
             status_frame,
-            text="Marquee sends each scrolling frame as a separate Camfrog status update. Uncheck Marquee to stop it.",
+            text="One-character marquee sends one verified frame and one Enter per update. Delay steps are the configured interval multiplied by 1–5 (default 5 seconds); Camfrog acceptance is not independently confirmed.",
             wraplength=700,
             anchor="w",
         )
@@ -447,6 +458,7 @@ class AppUI(ctk.CTk):
         self.mode_var = tk.StringVar(value="sequential")
         self.interval_var = tk.StringVar(value="10")
         self.interval_unit_var = tk.StringVar(value="minutes")
+        self.rotation_source_var = tk.StringVar(value="Messages 1–4")
         self.schedule_enabled_var = tk.BooleanVar(value=False)
         self.schedule_start_var = tk.StringVar(value="08:00")
         self.schedule_end_var = tk.StringVar(value="23:00")
@@ -463,6 +475,16 @@ class AppUI(ctk.CTk):
         self.mode_menu.grid(row=0, column=4, padx=(0, 10))
         ctk.CTkCheckBox(auto_frame, text="Start with Windows", variable=self.start_windows_var).grid(row=1, column=0, sticky="w", padx=10, pady=(0, 10))
         ctk.CTkCheckBox(auto_frame, text="Start Camfrog if not running", variable=self.autostart_camfrog_var).grid(row=1, column=1, columnspan=2, sticky="w", pady=(0, 10))
+        self.rotation_source_label = ctk.CTkLabel(auto_frame, text="Source")
+        self.rotation_source_label.grid(row=1, column=3, sticky="e", padx=(6, 4), pady=(0, 10))
+        self.rotation_source_menu = ctk.CTkOptionMenu(
+            auto_frame,
+            values=["Messages 1–4", "Camfrog Status History (random)"],
+            variable=self.rotation_source_var,
+            width=205,
+            command=self._rotation_source_changed,
+        )
+        self.rotation_source_menu.grid(row=1, column=4, sticky="w", padx=(0, 10), pady=(0, 10))
         self.status_commit_note = ctk.CTkLabel(auto_frame, text="UIA verified commit brings Camfrog forward; background Win32 is a fallback only")
         self.status_commit_note.grid(row=2, column=0, columnspan=5, sticky="w", padx=10, pady=(0, 6))
         self.background_control_check = ctk.CTkCheckBox(
@@ -816,6 +838,62 @@ class AppUI(ctk.CTk):
     def _mode_internal(value: str) -> str:
         return {"ตามลำดับ":"sequential", "สุ่ม":"random"}.get(value, value)
 
+    @staticmethod
+    def _rotation_source_internal(value: str) -> str:
+        normalized = " ".join(str(value).casefold().split())
+        if normalized in {
+            "camfrog status history (random)",
+            "camfrog status history",
+            "สุ่มจากประวัติสถานะ camfrog",
+        }:
+            return "camfrog_history"
+        return "messages"
+
+    @staticmethod
+    def _rotation_source_label(source: str, language: str = "EN") -> str:
+        if str(source).casefold() == "camfrog_history":
+            return "สุ่มจากประวัติสถานะ Camfrog" if str(language).upper() == "TH" else "Camfrog Status History (random)"
+        return "ข้อความ 1–4" if str(language).upper() == "TH" else "Messages 1–4"
+
+    def _rotation_source_changed(self, _value=None):
+        source = self._rotation_source_internal(self.rotation_source_var.get())
+        if source == "camfrog_history":
+            language = self.language_var.get()
+            self.mode_var.set("สุ่ม" if language == "TH" else "random")
+            self.mode_menu.configure(state="disabled")
+        else:
+            self.mode_menu.configure(state="normal")
+        try:
+            self._sync_ui_to_config()
+        except Exception:
+            pass
+        if self.rotation.running:
+            self._start_rotation()
+
+    def _rotation_messages(self, config: dict) -> list[str]:
+        rotation = config.get("status", {}).get("rotation", {})
+        source = self._rotation_source_internal(
+            self.rotation_source_var.get()
+            if hasattr(self, "rotation_source_var")
+            else rotation.get("source", "messages")
+        )
+        if source != "camfrog_history":
+            return [
+                str(value).strip()
+                for value in config.get("status", {}).get("editor_messages", [])
+                if str(value).strip()
+            ]
+
+        values = list(getattr(self, "_history_values", []))
+        if not values and os.name == "nt":
+            try:
+                result = read_camfrog_custom_statuses()
+                values = list(result.statuses or [])
+                self._history_values = values
+            except Exception:
+                log.warning("Could not read Camfrog status history for rotation", exc_info=True)
+        return list(dict.fromkeys(str(value).strip() for value in values if str(value).strip()))
+
     def _style_changed(self):
         self._refresh_status_preview()
         try:
@@ -829,25 +907,29 @@ class AppUI(ctk.CTk):
             self.marquee_animation.stop()
         if self.rotation.running:
             c = self.config_data
-            messages = [x for x in c["status"].get("editor_messages", []) if str(x).strip()]
+            messages = self._rotation_messages(c)
             if messages:
                 self.rotation.start(
                     messages,
                     int(c["status"]["rotation"].get("interval_seconds", 600)),
-                    c["status"]["rotation"].get("mode", "sequential"),
+                    "random" if c["status"]["rotation"].get("source") == "camfrog_history" else c["status"]["rotation"].get("mode", "sequential"),
                     schedule=c["status"]["rotation"],
                     marquee_enabled=bool(self.marquee_var.get()),
                     marquee_frame_interval_seconds=self._marquee_interval_seconds(c),
+                    marquee_progressive_delays=bool(c["status"].get("styles", {}).get("marquee_single_character", False)),
+                    minimum_interval_seconds=int(c.get("advanced", {}).get("minimum_interval_seconds", 5)),
                 )
+            else:
+                self.rotation.stop()
 
     @staticmethod
     def _marquee_interval_seconds(config: dict) -> int:
         minimum = max(1, int(config.get("advanced", {}).get("minimum_interval_seconds", 5)))
         styles = config.get("status", {}).get("styles", {})
         try:
-            configured = int(styles.get("marquee_frame_interval_seconds", 10))
+            configured = int(styles.get("marquee_frame_interval_seconds", 5))
         except (TypeError, ValueError):
-            configured = 10
+            configured = 5
         return min(3600, max(minimum, configured))
 
     def _random_color_toggled(self):
@@ -877,12 +959,21 @@ class AppUI(ctk.CTk):
     def _refresh_status_preview(self):
         if not hasattr(self, "status_preview_label"):
             return
+        styles = self.config_data.get("status", {}).get("styles", {})
+        color_template = str(styles.get("color_template", "[color={color}]{text}[/color]"))
+        invalid_template = color_template_error(color_template) is not None
+        warning = ""
+        if invalid_template:
+            warning = (
+                "เทมเพลตสีไม่ถูกต้อง; จะส่งข้อความโดยไม่มีมาร์กอัปสี"
+                if self.language_var.get() == "TH"
+                else "Invalid color template; text will be sent without color markup."
+            )
         values = self._message_values() if hasattr(self, "status_message_vars") else []
         if not values:
             empty = "ตัวอย่าง payload ที่จะส่ง: (กรอกข้อความ)" if self.language_var.get() == "TH" else "Outgoing payload preview: (enter a message)"
-            self.status_preview_label.configure(text=empty)
+            self.status_preview_label.configure(text=f"{empty}\n{warning}" if warning else empty)
             return
-        styles = self.config_data.get("status", {}).get("styles", {})
         payload, _next_offset, _color = apply_styles(
             values[0],
             random_color_enabled=bool(self.random_color_var.get()),
@@ -891,11 +982,13 @@ class AppUI(ctk.CTk):
             marquee_enabled=bool(self.marquee_var.get()),
             marquee_offset=self._marquee_offset,
             marquee_width=int(styles.get("marquee_width", 28)),
-            color_template=str(styles.get("color_template", "[color={color}]{text}[/color]")),
+            marquee_single_character=bool(self.marquee_single_character_var.get()),
+            color_template=color_template,
             palette=styles.get("palette", []),
         )
         prefix = "ตัวอย่าง payload ที่จะส่ง: " if self.language_var.get() == "TH" else "Outgoing payload preview: "
-        self.status_preview_label.configure(text=f"{prefix}{payload}")
+        preview = f"{prefix}{payload}"
+        self.status_preview_label.configure(text=f"{preview}\n{warning}" if warning else preview)
 
     def _language_changed(self, value=None):
         lang = "TH" if str(value or self.language_var.get()).upper() == "TH" else "EN"
@@ -913,9 +1006,12 @@ class AppUI(ctk.CTk):
             self.random_color_check.configure(text="สุ่มสีข้อความ" if th else "Random Color")
             self.custom_color_check.configure(text="กำหนดสี" if th else "Custom Color")
             self.marquee_check.configure(text="ข้อความวิ่ง" if th else "Marquee")
+            self.marquee_single_character_check.configure(
+                text="ส่งทีละ 1 ตัวอักษร" if th else "One character per frame"
+            )
             self.status_style_note.configure(
-                text=("Marquee ส่งแต่ละเฟรมเป็นการเปลี่ยนสถานะ Camfrog แยกกัน ยกเลิกเครื่องหมาย Marquee เพื่อหยุด; การแสดงสีของ Camfrog ยังไม่ยืนยัน."
-                      if th else "Marquee sends each scrolling frame as a separate Camfrog status update. Uncheck Marquee to stop it; Camfrog color rendering is unverified.")
+                text=("โหมดทีละตัวอักษรส่งหนึ่งเฟรมและกด Enter หนึ่งครั้ง โดยหน่วงตามค่า Step × 1–5 (ค่าเริ่มต้น 5 วินาที); ยังยืนยันผลตอบรับจาก Camfrog ไม่ได้."
+                      if th else "One-character marquee sends one verified frame and one Enter per update. Delay steps are the configured interval multiplied by 1–5 (default 5 seconds); Camfrog acceptance is not independently confirmed.")
             )
             self.standard_status_title.configure(text="สถานะมาตรฐาน (50 คู่)" if th else "Standard status (50 pairs)")
             self.standard_status_apply_button.configure(text="ส่งไป Camfrog" if th else "Send to Camfrog")
@@ -932,7 +1028,18 @@ class AppUI(ctk.CTk):
             self.language_label.configure(text="ภาษา" if th else "Language")
             self.schedule_range_label.configure(text="ถึง" if th else "to")
             self.quiet_range_label.configure(text="ถึง" if th else "to")
-            self.marquee_frame_label.configure(text="วินาที/เฟรม" if th else "Frame s")
+            self.marquee_frame_label.configure(text="ขั้น/วินาที" if th else "Step s")
+            if hasattr(self, "rotation_source_menu"):
+                source = self._rotation_source_internal(self.rotation_source_var.get())
+                self.rotation_source_label.configure(text="แหล่งข้อความ" if th else "Source")
+                self.rotation_source_menu.configure(
+                    values=(
+                        ["ข้อความ 1–4", "สุ่มจากประวัติสถานะ Camfrog"]
+                        if th
+                        else ["Messages 1–4", "Camfrog Status History (random)"]
+                    )
+                )
+                self.rotation_source_var.set(self._rotation_source_label(source, lang))
             self.auto_respond_title.configure(
                 text="ตอบกลับอัตโนมัติ (ข้อความส่วนตัวและแชตห้อง)" if th else "Auto respond (private messages and room chat)"
             )
@@ -1028,12 +1135,16 @@ class AppUI(ctk.CTk):
         if hasattr(self, "interval_unit_menu"):
             internal_unit = self._unit_internal(self.interval_unit_var.get())
             internal_mode = self._mode_internal(self.mode_var.get())
+            internal_source = self._rotation_source_internal(self.rotation_source_var.get())
+            if internal_source == "camfrog_history":
+                internal_mode = "random"
             unit_map = {"seconds":"วินาที", "minutes":"นาที", "hours":"ชั่วโมง"}
             mode_map = {"sequential":"ตามลำดับ", "random":"สุ่ม"}
             self.interval_unit_menu.configure(values=["วินาที","นาที","ชั่วโมง"] if th else ["seconds","minutes","hours"])
             self.interval_unit_var.set(unit_map.get(internal_unit, "นาที") if th else internal_unit)
             self.mode_menu.configure(values=["ตามลำดับ","สุ่ม"] if th else ["sequential","random"])
             self.mode_var.set(mode_map.get(internal_mode, "ตามลำดับ") if th else internal_mode)
+            self.mode_menu.configure(state="disabled" if internal_source == "camfrog_history" else "normal")
         try:
             self._sync_ui_to_config()
         except Exception:
@@ -1048,6 +1159,11 @@ class AppUI(ctk.CTk):
         custom_color_enabled = bool(self.custom_color_var.get()) if hasattr(self, "custom_color_var") else bool(styles.get("custom_color_enabled", False))
         custom_color = self.custom_color_value.get() if hasattr(self, "custom_color_value") else str(styles.get("custom_color", "#00C7BE"))
         marquee_enabled = bool(self.marquee_var.get()) if hasattr(self, "marquee_var") else bool(styles.get("marquee", False))
+        marquee_single_character = bool(
+            self.marquee_single_character_var.get()
+            if hasattr(self, "marquee_single_character_var")
+            else styles.get("marquee_single_character", True)
+        )
         with self._style_lock:
             styled, next_offset, _ = apply_styles(
                 value,
@@ -1057,6 +1173,7 @@ class AppUI(ctk.CTk):
                 marquee_enabled=marquee_enabled,
                 marquee_offset=self._marquee_offset,
                 marquee_width=int(styles.get("marquee_width", 28)),
+                marquee_single_character=marquee_single_character,
                 color_template=str(styles.get("color_template", "[color={color}]{text}[/color]")),
                 palette=styles.get("palette", []),
             )
@@ -1155,14 +1272,29 @@ class AppUI(ctk.CTk):
             return
         if self.marquee_var.get() and not self.rotation.running:
             styles = self.config_data.get("status", {}).get("styles", {})
-            self._marquee_offset = int(styles.get("marquee_width", 28))
-            self.marquee_animation.start(value, self._marquee_interval_seconds(self.config_data))
+            single_character = bool(styles.get("marquee_single_character", True))
+            self._marquee_offset = 0 if single_character else int(styles.get("marquee_width", 28))
             interval = self._marquee_interval_seconds(self.config_data)
-            self.state_label.configure(
-                text=(f"เริ่มข้อความวิ่ง; อัปเดตทุก {interval} วินาที — ยกเลิก Marquee เพื่อหยุด"
-                      if self.language_var.get() == "TH"
-                      else f"Marquee started; Camfrog status updates every {interval}s. Uncheck Marquee to stop.")
+            self.marquee_animation.start(
+                value,
+                interval,
+                progressive_delays=single_character,
+                minimum_interval_seconds=int(self.config_data.get("advanced", {}).get("minimum_interval_seconds", 5)),
             )
+            if single_character:
+                steps = ", ".join(str(interval * n) for n in range(1, 6))
+                state_text = (
+                    f"เริ่มข้อความวิ่งทีละตัวอักษร; หน่วง {steps} วินาทีวนซ้ำ — ยกเลิก Marquee เพื่อหยุด"
+                    if self.language_var.get() == "TH"
+                    else f"One-character marquee started; delay steps: {steps}s, repeating. Uncheck Marquee to stop."
+                )
+            else:
+                state_text = (
+                    f"เริ่มข้อความวิ่ง; อัปเดตทุก {interval} วินาที — ยกเลิก Marquee เพื่อหยุด"
+                    if self.language_var.get() == "TH"
+                    else f"Marquee started; Camfrog status updates every {interval}s. Uncheck Marquee to stop."
+                )
+            self.state_label.configure(text=state_text)
             return
         self.marquee_animation.stop()
         value = self._styled_value(value, advance=bool(self.marquee_var.get()))
@@ -1190,6 +1322,12 @@ class AppUI(ctk.CTk):
         self.interval_unit_var.set(interval_unit)
         self.mode_var.set(c["status"]["rotation"].get("mode", "sequential"))
         rotation = c["status"]["rotation"]
+        self.rotation_source_var.set(
+            self._rotation_source_label(
+                rotation.get("source", "messages"),
+                str(c.get("ui", {}).get("language", "EN")).upper(),
+            )
+        )
         self.schedule_enabled_var.set(bool(rotation.get("schedule_enabled", False)))
         self.schedule_start_var.set(str(rotation.get("schedule_start", "08:00")))
         self.schedule_end_var.set(str(rotation.get("schedule_end", "23:00")))
@@ -1208,7 +1346,8 @@ class AppUI(ctk.CTk):
         self.custom_color_value.set(str(styles.get("custom_color", "#00C7BE")))
         self.custom_color_button.configure(text=self.custom_color_value.get(), fg_color=self.custom_color_value.get())
         self.marquee_var.set(bool(styles.get("marquee", False)))
-        self.marquee_frame_interval_var.set(str(styles.get("marquee_frame_interval_seconds", 10)))
+        self.marquee_single_character_var.set(bool(styles.get("marquee_single_character", True)))
+        self.marquee_frame_interval_var.set(str(styles.get("marquee_frame_interval_seconds", 5)))
         self.standard_status_id_var.set(c["status"].get("standard_status_id", DEFAULT_STANDARD_STATUS_ID))
         self.language_var.set(str(c.get("ui", {}).get("language", "EN")).upper())
         self.presets_box.delete("1.0", "end")
@@ -1308,8 +1447,16 @@ class AppUI(ctk.CTk):
             # Keep the prior known-good value instead of silently changing units.
             interval = int(c["status"]["rotation"].get("interval_seconds", 600))
         c["status"]["rotation"]["interval_seconds"] = interval
-        c["status"]["rotation"]["mode"] = self._mode_internal(self.mode_var.get())
         rotation = c["status"]["rotation"]
+        rotation_source = self._rotation_source_internal(
+            self.rotation_source_var.get()
+            if hasattr(self, "rotation_source_var")
+            else rotation.get("source", "messages")
+        )
+        rotation["source"] = rotation_source
+        rotation["mode"] = (
+            "random" if rotation_source == "camfrog_history" else self._mode_internal(self.mode_var.get())
+        )
         rotation["schedule_enabled"] = bool(self.schedule_enabled_var.get())
         rotation["schedule_start"] = self.schedule_start_var.get().strip()
         rotation["schedule_end"] = self.schedule_end_var.get().strip()
@@ -1323,13 +1470,18 @@ class AppUI(ctk.CTk):
         styles["custom_color_enabled"] = bool(self.custom_color_var.get()) and not bool(self.random_color_var.get())
         styles["custom_color"] = self.custom_color_value.get().strip().upper()
         styles["marquee"] = bool(self.marquee_var.get())
+        styles["marquee_single_character"] = bool(
+            self.marquee_single_character_var.get()
+            if hasattr(self, "marquee_single_character_var")
+            else styles.get("marquee_single_character", True)
+        )
         try:
             styles["marquee_frame_interval_seconds"] = max(
                 int(c.get("advanced", {}).get("minimum_interval_seconds", 5)),
                 int(self.marquee_frame_interval_var.get().strip()),
             )
         except (AttributeError, TypeError, ValueError):
-            styles["marquee_frame_interval_seconds"] = int(styles.get("marquee_frame_interval_seconds", 10))
+            styles["marquee_frame_interval_seconds"] = int(styles.get("marquee_frame_interval_seconds", 5))
         auto = c.setdefault("auto_respond", {})
         auto["enabled"] = bool(self.auto_respond_enabled_var.get())
         auto["private_enabled"] = bool(self.auto_respond_private_var.get())
@@ -1714,12 +1866,33 @@ class AppUI(ctk.CTk):
         )
         if result is None:
             return
+        if (
+            moderation.get("auto_kick") is True
+            and result.message == "Auto kick disabled after reaching the per-minute action limit"
+        ):
+            self._disable_bad_word_auto_kick()
         if moderation.get("auto_kick") is True and result.ok:
             self._bad_word_last_state = (
                 "Configured bad-word kick submitted; server authorization and result are not independently confirmed"
             )
         else:
             self._bad_word_last_state = result.message
+        self._render_bad_word_state()
+
+    def _disable_bad_word_auto_kick(self):
+        """Persist the moderation kill switch and reflect it in the UI."""
+        try:
+            config = self.store.load()
+            moderation = config.get("bad_word_moderation", {})
+            if not isinstance(moderation, dict):
+                moderation = {}
+            moderation["auto_kick"] = False
+            config["bad_word_moderation"] = moderation
+            self.store.save(config)
+        except Exception:
+            log.exception("Could not persist the bad-word auto-kick kill switch")
+        self.bad_word_auto_kick_var.set(False)
+        self._bad_word_last_state = "Auto kick disabled after reaching the per-minute action limit"
         self._render_bad_word_state()
 
     def _bad_word_state_changed(self, state: str):
@@ -1808,6 +1981,8 @@ class AppUI(ctk.CTk):
             "Could not inspect the selected Camfrog process": "ตรวจสอบ process Camfrog ที่เลือกไม่ได้",
             "Configured bad-word match detected; awaiting operator confirmation": "พบคำที่ตั้งค่าไว้; รอการยืนยันจากผู้ใช้",
             "Configured bad-word match detected; auto-kick enabled": "พบคำที่ตั้งค่าไว้; เปิด kick อัตโนมัติอยู่",
+            "Auto kick disabled after reaching the per-minute action limit": "ปิด kick อัตโนมัติแล้วเนื่องจากถึงขีดจำกัดต่อหนึ่งนาที",
+            "Room history structure is ambiguous; moderation paused": "โครงสร้างประวัติห้องกำกวม จึงพักการตรวจไว้ก่อน",
             "Configured bad-word kick submitted; server authorization and result are not independently confirmed": "ส่งคำสั่ง kick ตามกฎที่ตั้งไว้แล้ว แต่ยังยืนยันสิทธิ์หรือผลจากเซิร์ฟเวอร์ไม่ได้",
             "Bad-word monitor is watching configured room history": "กำลังตรวจประวัติแชตห้องตามที่ตั้งค่าไว้",
             "Waiting for the configured room chat window": "รอหน้าต่างแชตห้องที่ตั้งค่าไว้",
@@ -1821,12 +1996,15 @@ class AppUI(ctk.CTk):
         result = self.controller.set_status(value)
         self.after(0, lambda: self._show_result(result))
 
-    def _apply_status_background(self, value):
+    def _apply_status_background(self, value, *, cancelled=None):
         # Rotation executes on its own thread. Read the synced config snapshot
         # here instead of calling Tk variables outside the UI thread.
         styles = dict(self.config_data.get("status", {}).get("styles", {}))
         marquee_enabled = bool(styles.get("marquee", False))
         with self._style_lock:
+            if marquee_enabled and styles.get("marquee_single_character", True) and self._marquee_current_text != value:
+                self._marquee_offset = 0
+                self._marquee_current_text = value
             value, next_offset, _ = apply_styles(
                 value,
                 random_color_enabled=bool(styles.get("random_color", False)),
@@ -1835,12 +2013,16 @@ class AppUI(ctk.CTk):
                 marquee_enabled=marquee_enabled,
                 marquee_offset=self._marquee_offset,
                 marquee_width=int(styles.get("marquee_width", 28)),
+                marquee_single_character=bool(styles.get("marquee_single_character", True)),
                 color_template=str(styles.get("color_template", "[color={color}]{text}[/color]")),
                 palette=styles.get("palette", []),
             )
             if marquee_enabled:
                 self._marquee_offset = next_offset
-        result = self.controller.set_status(value)
+        if cancelled is None:
+            result = self.controller.set_status(value)
+        else:
+            result = self.controller.set_status(value, cancelled=cancelled)
         if not getattr(self, "_exiting", False):
             try:
                 self.after(0, lambda: self.state_label.configure(text=result.message if result.ok else f"ERROR: {result.message}"))
@@ -1854,19 +2036,31 @@ class AppUI(ctk.CTk):
 
     def _start_rotation(self):
         c = self._sync_ui_to_config()
-        messages = [x for x in c["status"].get("editor_messages", []) if str(x).strip()]
+        source = c["status"]["rotation"].get("source", "messages")
+        messages = self._rotation_messages(c)
         if not messages:
-            messagebox.showwarning("Rotation", "เพิ่มอย่างน้อย 1 ข้อความ" if self.language_var.get() == "TH" else "Add at least one message.")
+            warning = (
+                "ไม่พบประวัติสถานะ Camfrog ให้อ่าน History ก่อน"
+                if source == "camfrog_history" and self.language_var.get() == "TH"
+                else "Camfrog Status History is empty; read the history first."
+                if source == "camfrog_history"
+                else "เพิ่มอย่างน้อย 1 ข้อความ" if self.language_var.get() == "TH"
+                else "Add at least one message."
+            )
+            messagebox.showwarning("Rotation", warning)
             return
         interval = c["status"]["rotation"]["interval_seconds"]
+        mode = "random" if source == "camfrog_history" else c["status"]["rotation"]["mode"]
         self.marquee_animation.stop()
         self.rotation.start(
             messages,
             interval,
-            c["status"]["rotation"]["mode"],
+            mode,
             schedule=c["status"]["rotation"],
             marquee_enabled=bool(c["status"].get("styles", {}).get("marquee", False)),
             marquee_frame_interval_seconds=self._marquee_interval_seconds(c),
+            marquee_progressive_delays=bool(c["status"].get("styles", {}).get("marquee_single_character", False)),
+            minimum_interval_seconds=int(c.get("advanced", {}).get("minimum_interval_seconds", 5)),
         )
         self.rotation_var.set(True)
         c["status"]["rotation"]["enabled"] = True
@@ -2043,10 +2237,11 @@ class AppUI(ctk.CTk):
     def _resume_background_automation(self):
         c = self.config_data
         if c.get("status", {}).get("rotation", {}).get("enabled", False):
-            messages = [x for x in c.get("status", {}).get("editor_messages", []) if str(x).strip()]
+            messages = self._rotation_messages(c)
             if messages:
                 interval = max(int(c.get("advanced", {}).get("minimum_interval_seconds", 5)), int(c["status"]["rotation"].get("interval_seconds", 600)))
-                mode = c["status"]["rotation"].get("mode", "sequential")
+                source = c["status"]["rotation"].get("source", "messages")
+                mode = "random" if source == "camfrog_history" else c["status"]["rotation"].get("mode", "sequential")
                 styles = c.get("status", {}).get("styles", {})
                 self.rotation.start(
                     messages,
@@ -2055,11 +2250,18 @@ class AppUI(ctk.CTk):
                     schedule=c["status"]["rotation"],
                     marquee_enabled=bool(styles.get("marquee", False)),
                     marquee_frame_interval_seconds=self._marquee_interval_seconds(c),
+                    marquee_progressive_delays=bool(styles.get("marquee_single_character", False)),
+                    minimum_interval_seconds=int(c.get("advanced", {}).get("minimum_interval_seconds", 5)),
                 )
                 self.state_label.configure(text=self._tr(
                     f"Background rotation: first eligible message now, then 1 message per {self._format_interval(interval)}",
                     f"หมุนข้อความเบื้องหลัง: ส่งข้อความแรกทันทีเมื่ออยู่ในช่วงที่กำหนด แล้วส่ง 1 ข้อความทุก {self._format_interval(interval)}",
                 ))
+            elif c["status"]["rotation"].get("source") == "camfrog_history":
+                self.state_label.configure(
+                    text="ไม่พบประวัติสถานะ Camfrog; หยุดการหมุนข้อความ" if self.language_var.get() == "TH"
+                    else "Camfrog Status History is empty; rotation was not started."
+                )
         if c.get("auto_respond", {}).get("enabled", False):
             self.auto_responder.start()
         if c.get("bad_word_moderation", {}).get("enabled", False):

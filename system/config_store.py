@@ -14,7 +14,7 @@ from camfrog.auto_respond import normalize_reply_text
 from status_catalog import DEFAULT_STANDARD_STATUS_ID, STANDARD_STATUS_IDS
 
 DEFAULT_CONFIG = {
-    "schema_version": 2,
+    "schema_version": 3,
     "camfrog": {
         "executable": "",
         "window_title_regex": ".*Camfrog Video Chat.*",
@@ -38,6 +38,7 @@ DEFAULT_CONFIG = {
             "enabled": False,
             "interval_seconds": 600,
             "mode": "sequential",
+            "source": "messages",
             "schedule_enabled": False,
             "schedule_start": "08:00",
             "schedule_end": "23:00",
@@ -50,8 +51,9 @@ DEFAULT_CONFIG = {
             "custom_color_enabled": False,
             "custom_color": "#00C7BE",
             "marquee": False,
+            "marquee_single_character": True,
             "marquee_width": 28,
-            "marquee_frame_interval_seconds": 10,
+            "marquee_frame_interval_seconds": 5,
             "color_template": "[color={color}]{text}[/color]",
             "palette": ["#FF3B30","#FF9500","#FFCC00","#34C759","#00C7BE","#0A84FF","#5E5CE6","#BF5AF2","#FF2D55"]
         },
@@ -123,6 +125,51 @@ DEFAULT_CONFIG = {
     },
 }
 
+CONFIG_REPLACE_ATTEMPTS = 4
+CONFIG_REPLACE_BASE_DELAY_SECONDS = 0.05
+CURRENT_CONFIG_SCHEMA_VERSION = 3
+
+
+def migrate_config(data: dict[str, Any]) -> dict[str, Any]:
+    """Upgrade persisted settings one schema version at a time."""
+    migrated = copy.deepcopy(data)
+    try:
+        version = int(migrated.get("schema_version", 1))
+    except (TypeError, ValueError):
+        version = 1
+
+    if version < 2:
+        status = migrated.get("status")
+        if not isinstance(status, dict):
+            status = {}
+            migrated["status"] = status
+        if not isinstance(status.get("editor_messages"), list):
+            legacy_lines = status.get("editor_lines", [])
+            status["editor_messages"] = legacy_lines if isinstance(legacy_lines, list) else [legacy_lines]
+        status.pop("editor_lines", None)
+        version = 2
+
+    if version < 3:
+        status = migrated.get("status")
+        if not isinstance(status, dict):
+            status = {}
+            migrated["status"] = status
+        rotation = status.get("rotation")
+        if not isinstance(rotation, dict):
+            rotation = {}
+            status["rotation"] = rotation
+        styles = status.get("styles")
+        if not isinstance(styles, dict):
+            styles = {}
+            status["styles"] = styles
+        rotation.setdefault("source", "messages")
+        styles.setdefault("marquee_single_character", True)
+        styles.setdefault("marquee_frame_interval_seconds", 5)
+        version = 3
+
+    migrated["schema_version"] = max(version, CURRENT_CONFIG_SCHEMA_VERSION)
+    return migrated
+
 
 class ConfigStore:
     def __init__(self) -> None:
@@ -143,7 +190,7 @@ class ConfigStore:
                 raw = json.load(f)
             if not isinstance(raw, dict):
                 raise ValueError("config root must be an object")
-            return self.validate(self._merge(DEFAULT_CONFIG, raw))
+            return self.validate(self._merge(DEFAULT_CONFIG, migrate_config(raw)))
         except Exception:
             stamp = time.strftime("%Y%m%d-%H%M%S")
             backup = self.dir / f"config.corrupt-{stamp}.json"
@@ -156,18 +203,25 @@ class ConfigStore:
             return clean
 
     def save(self, data: dict[str, Any]) -> None:
-        data = self.validate(self._merge(DEFAULT_CONFIG, data))
+        data = self.validate(self._merge(DEFAULT_CONFIG, migrate_config(data)))
         self.dir.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
         with tmp.open("w", encoding="utf-8", newline="\n") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, self.path)
+        for attempt in range(CONFIG_REPLACE_ATTEMPTS):
+            try:
+                os.replace(tmp, self.path)
+                break
+            except PermissionError:
+                if attempt + 1 >= CONFIG_REPLACE_ATTEMPTS:
+                    raise
+                time.sleep(CONFIG_REPLACE_BASE_DELAY_SECONDS * (2 ** attempt))
 
     @staticmethod
     def validate(data: dict[str, Any]) -> dict[str, Any]:
-        data["schema_version"] = 2
+        data["schema_version"] = CURRENT_CONFIG_SCHEMA_VERSION
         adv = data.setdefault("advanced", {})
         adv["minimum_interval_seconds"] = max(5, int(adv.get("minimum_interval_seconds", 5)))
         adv["max_status_length"] = min(512, max(1, int(adv.get("max_status_length", 160))))
@@ -177,6 +231,8 @@ class ConfigStore:
         rot["interval_seconds"] = max(adv["minimum_interval_seconds"], int(rot.get("interval_seconds", 600)))
         if rot.get("mode") not in {"sequential", "random"}:
             rot["mode"] = "sequential"
+        if rot.get("source") not in {"messages", "camfrog_history"}:
+            rot["source"] = "messages"
         presets = data["status"].setdefault("presets", [])
         clean = []
         seen = set()
@@ -246,9 +302,12 @@ class ConfigStore:
         room_actions["room_title"] = room_title[:128]
 
         def safe_nickname(value: Any) -> str:
-            nickname = str(value).replace("\x00", "").strip()
+            if not isinstance(value, str):
+                return ""
+            nickname = value
             if not nickname or len(nickname) > 64 or any(
-                not (character.isalnum() or character in "_.-") for character in nickname
+                not (character.isalnum() or character in "_.-") or character.isspace()
+                for character in nickname
             ):
                 return ""
             return nickname
@@ -325,11 +384,12 @@ class ConfigStore:
         custom_color = str(styles.get("custom_color", "#00C7BE")).strip().upper()
         styles["custom_color"] = custom_color if re.fullmatch(r"#[0-9A-F]{6}", custom_color) else "#00C7BE"
         styles["marquee"] = bool(styles.get("marquee", False))
+        styles["marquee_single_character"] = bool(styles.get("marquee_single_character", True))
         styles["marquee_width"] = min(80, max(4, int(styles.get("marquee_width", 28))))
         try:
-            marquee_interval = int(styles.get("marquee_frame_interval_seconds", 10))
+            marquee_interval = int(styles.get("marquee_frame_interval_seconds", 5))
         except (TypeError, ValueError):
-            marquee_interval = 10
+            marquee_interval = 5
         styles["marquee_frame_interval_seconds"] = min(3600, max(adv["minimum_interval_seconds"], marquee_interval))
         styles["color_template"] = str(styles.get("color_template", "[color={color}]{text}[/color]"))[:200]
         palette = styles.get("palette", [])
