@@ -1,5 +1,7 @@
 # Camfrog Video Chat — Static Feature Inventory
 
+> EULA and legal review is pending before redistribution of reverse-engineering notes or derived artifacts. See [the review notice](README.md).
+
 ## Target and method
 
 - File: active Windows installation of `Camfrog Video Chat.exe`
@@ -27,13 +29,13 @@
 
 | Requested capability | Current state in this repository |
 |---|---|
-| Custom status from history | History discovery is read-only; the user explicitly imports discovered values into presets. |
+| Custom status from history | History discovery is read-only; the user can select the current history rows for random rotation or explicitly import them into presets. |
 | Standard status catalog | 50 bilingual EN/TH entries, searchable by either language, filterable by category/favorite, and saved by stable ID. |
 | Preset file exchange | JSON v1 and one-status-per-line TXT import/export; imported values merge with deduplication. |
-| Message rotation | Sequential or shuffled non-empty rows; the first eligible row applies immediately, then one row per configured delay. Status writes and Enter commits are serialized by the rotation worker. |
+| Message rotation | Message 1–4 can run sequentially or shuffled; Camfrog Status History runs in random order. One row is applied per tick. Status writes and Enter commits are serialized by the rotation worker. |
 | Rotation windows | Optional local-time daily schedule and overnight quiet hours; ineligible ticks are skipped. |
-| Status submission | One verified UIA text write, a 0.45-second settle, and one foreground Enter on the same editor. Server acceptance is not independently confirmed. |
-| Marquee status | Emulated as repeated status updates: a manual run advances frames at the configured frame interval; during rotation, it advances the current row until that row's rotation interval expires. Each frame is a separate status send. Automated tests cover frame scheduling; continuous rendering or server acceptance was not verified. |
+| Status submission | One verified Unicode clipboard paste, a 0.45-second settle, and one foreground Enter on the same editor. Failed verification skips commit; server acceptance is not independently confirmed. |
+| Marquee status | Emulated as repeated status updates. Single-character mode applies one character from the active Message 1–4 row and sends one Enter; delays repeat at 5, 10, 15, 20, and 25 seconds, with the minimum five-second send guard retained. Automated tests cover frame scheduling; live rendering and server acceptance remain unverified. |
 | Custom status color | Custom and random color options wrap the status text in configured markup. The target binary has no confirmed color field, so visible coloring is unverified and markup may be displayed literally. |
 | Start Camfrog | The helper can start Camfrog on demand when a status apply needs a client. “Start with Windows” starts the helper, not a separate Camfrog login for each account. |
 | Auto respond | Optional, disabled-by-default monitor for configured private-chat and room-chat UIA controls. It parses only newly appended visible `sender: message` lines, ignores the configured own nickname, preserves non-empty drafts, and submits through an explicit UIA InvokePattern. The user must configure exact window-title fragments and control IDs. Server acceptance and current-build selectors are not verified. |

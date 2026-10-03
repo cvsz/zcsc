@@ -4,6 +4,8 @@ import os
 
 
 class SingleInstance:
+    """Use a Windows named mutex; the OS releases it when a process exits."""
+
     def __init__(self, name: str = "Local\\CamfrogStatusChanger.SingleInstance") -> None:
         self.name = name
         self._handle = None
@@ -14,14 +16,24 @@ class SingleInstance:
         import win32api
         import win32event
         import winerror
-        self._handle = win32event.CreateMutex(None, False, self.name)
-        return win32api.GetLastError() != winerror.ERROR_ALREADY_EXISTS
-
-    def release(self) -> None:
-        if self._handle is not None and os.name == "nt":
-            import win32api
+        handle = win32event.CreateMutex(None, False, self.name)
+        last_error = win32api.GetLastError()
+        if handle is None:
+            raise OSError(last_error, "CreateMutex failed for the single-instance guard")
+        if last_error == winerror.ERROR_ALREADY_EXISTS:
             try:
-                win32api.CloseHandle(self._handle)
+                win32api.CloseHandle(handle)
             except Exception:
                 pass
-            self._handle = None
+            return False
+        self._handle = handle
+        return True
+
+    def release(self) -> None:
+        if self._handle is not None:
+            import win32api
+            handle, self._handle = self._handle, None
+            try:
+                win32api.CloseHandle(handle)
+            except Exception:
+                pass

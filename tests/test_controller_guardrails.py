@@ -297,7 +297,7 @@ def test_stage_status_text_verifies_draft_without_sending_enter(monkeypatch):
     ]
 
 
-def test_uia_verified_status_uses_one_real_enter_without_a_second_text_write(monkeypatch):
+def test_uia_status_pastes_from_clipboard_verifies_then_sends_one_real_enter(monkeypatch):
     class Edit:
         handle = 33
         element_info = SimpleNamespace(class_name="CEdit4ComboInnerTS", control_type="Edit")
@@ -305,15 +305,14 @@ def test_uia_verified_status_uses_one_real_enter_without_a_second_text_write(mon
         def __init__(self, events):
             self.events = events
             self.text = ""
-            self.write_calls = 0
+            self.direct_write_calls = 0
 
         def set_focus(self):
             self.events.append("edit-focus")
 
         def set_edit_text(self, value):
-            self.events.append("write")
-            self.write_calls += 1
-            self.text = value
+            self.direct_write_calls += 1
+            raise AssertionError("status payload must use clipboard paste")
 
         def type_keys(self, value):
             self.events.append(("key", value))
@@ -323,6 +322,26 @@ def test_uia_verified_status_uses_one_real_enter_without_a_second_text_write(mon
 
     events = []
     edit = Edit(events)
+    clipboard = ["clipboard before"]
+    pyperclip = ModuleType("pyperclip")
+    pyperclip.paste = lambda: clipboard[0]
+    pyperclip.copy = lambda value: clipboard.__setitem__(0, value)
+
+    keyboard = ModuleType("pywinauto.keyboard")
+
+    def send_keys(keys):
+        events.append(("keys", keys))
+        if keys == "^a{BACKSPACE}":
+            edit.text = ""
+        elif keys == "^v":
+            edit.text = clipboard[0]
+
+    keyboard.send_keys = send_keys
+    pywinauto = ModuleType("pywinauto")
+    pywinauto.__path__ = []
+    monkeypatch.setitem(sys.modules, "pyperclip", pyperclip)
+    monkeypatch.setitem(sys.modules, "pywinauto", pywinauto)
+    monkeypatch.setitem(sys.modules, "pywinauto.keyboard", keyboard)
 
     class Combo:
         handle = 22
@@ -340,6 +359,9 @@ def test_uia_verified_status_uses_one_real_enter_without_a_second_text_write(mon
     class Window:
         handle = 11
 
+        def process_id(self):
+            return 123
+
         def restore(self):
             events.append("restore")
 
@@ -352,6 +374,8 @@ def test_uia_verified_status_uses_one_real_enter_without_a_second_text_write(mon
     controller.find_window = lambda: Window()
     controller._find_target = lambda _window: Combo()
     controller.native_profile_info = lambda: {"matched": True, "name": "test-profile"}
+    controller._wait_for_foreground_status = lambda _window, _edit, value: (True, value, "")
+    controller._foreground_status_snapshot = lambda _window, _edit, value: (True, value, "")
     monkeypatch.setattr("camfrog.controller.time.sleep", lambda seconds: events.append(("sleep", seconds)))
     monkeypatch.setattr(
         "camfrog.controller.set_status_background",
@@ -362,21 +386,27 @@ def test_uia_verified_status_uses_one_real_enter_without_a_second_text_write(mon
 
     assert result.ok
     assert "one foreground Enter sent" in result.message
-    assert edit.write_calls == 1
+    assert edit.direct_write_calls == 0
     assert edit.text == "Hello"
+    assert clipboard[0] == "clipboard before"
     assert events == [
-        "write",
-        ("sleep", 0.1),
         "restore",
         "window-focus",
         "edit-focus",
-        ("sleep", 0.45),
+        ("sleep", 0.15),
+        ("keys", "^a{BACKSPACE}"),
+        ("keys", "^v"),
+        ("sleep", 0.1),
+        "edit-focus",
         ("key", "{ENTER}"),
         ("sleep", 0.25),
     ]
 
 
 def test_legacy_fallback_setting_does_not_change_verified_uia_commit(monkeypatch):
+    clipboard = ["clipboard before"]
+    writes = []
+
     class Edit:
         handle = 33
         element_info = SimpleNamespace(class_name="CEdit4ComboInnerTS", control_type="Edit")
@@ -389,8 +419,8 @@ def test_legacy_fallback_setting_does_not_change_verified_uia_commit(monkeypatch
             self.events.append("focus")
 
         def set_edit_text(self, value):
-            self.events.append("write")
-            self.text = value
+            writes.append(value)
+            raise AssertionError("status payload must use clipboard paste")
 
         def type_keys(self, value):
             self.events.append(("key", value))
@@ -400,6 +430,26 @@ def test_legacy_fallback_setting_does_not_change_verified_uia_commit(monkeypatch
 
     events = []
     edit = Edit(events)
+
+    pyperclip = ModuleType("pyperclip")
+    pyperclip.paste = lambda: clipboard[0]
+    pyperclip.copy = lambda value: clipboard.__setitem__(0, value)
+
+    keyboard = ModuleType("pywinauto.keyboard")
+
+    def send_keys(keys):
+        events.append(("keys", keys))
+        if keys == "^a{BACKSPACE}":
+            edit.text = ""
+        elif keys == "^v":
+            edit.text = clipboard[0]
+
+    keyboard.send_keys = send_keys
+    pywinauto = ModuleType("pywinauto")
+    pywinauto.__path__ = []
+    monkeypatch.setitem(sys.modules, "pyperclip", pyperclip)
+    monkeypatch.setitem(sys.modules, "pywinauto", pywinauto)
+    monkeypatch.setitem(sys.modules, "pywinauto.keyboard", keyboard)
 
     class Combo:
         handle = 22
@@ -412,6 +462,9 @@ def test_legacy_fallback_setting_does_not_change_verified_uia_commit(monkeypatch
 
     class Window:
         handle = 11
+
+        def process_id(self):
+            return 123
 
         def restore(self):
             events.append("restore")
@@ -427,6 +480,8 @@ def test_legacy_fallback_setting_does_not_change_verified_uia_commit(monkeypatch
     controller.find_window = lambda: Window()
     controller._find_target = lambda _window: Combo()
     controller.native_profile_info = lambda: {"matched": True, "name": "test-profile"}
+    controller._wait_for_foreground_status = lambda _window, _edit, value: (True, value, "")
+    controller._foreground_status_snapshot = lambda _window, _edit, value: (True, value, "")
     monkeypatch.setattr("camfrog.controller.time.sleep", lambda seconds: events.append(("sleep", seconds)))
     monkeypatch.setattr(
         "camfrog.controller.set_status_background",
@@ -436,13 +491,18 @@ def test_legacy_fallback_setting_does_not_change_verified_uia_commit(monkeypatch
     result = controller.set_status("Hello")
 
     assert result.ok
+    assert writes == []
+    assert edit.text == "Hello"
+    assert clipboard[0] == "clipboard before"
     assert events == [
-        "write",
-        ("sleep", 0.1),
         "restore",
         "window-focus",
         "focus",
-        ("sleep", 0.45),
+        ("sleep", 0.15),
+        ("keys", "^a{BACKSPACE}"),
+        ("keys", "^v"),
+        ("sleep", 0.1),
+        "focus",
         ("key", "{ENTER}"),
         ("sleep", 0.25),
     ]
