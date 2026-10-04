@@ -74,3 +74,27 @@ def test_discover_does_not_guess_between_multiple_running_client_binaries(monkey
     )
 
     assert detector.discover_executable() == ""
+
+
+
+def test_find_process_by_pid_requires_exact_executable(monkeypatch):
+    class Process:
+        def __init__(self, pid, executable, running=True):
+            self.pid = pid
+            self.info = {"pid": pid, "name": "Camfrog Video Chat.exe", "exe": executable}
+            self._running = running
+
+        def is_running(self):
+            return self._running
+
+        def exe(self):
+            return self.info["exe"]
+
+        def name(self):
+            return self.info["name"]
+
+    selected = Process(77, r"C:\Camfrog\Camfrog Video Chat.exe")
+    monkeypatch.setattr(detector.psutil, "Process", lambda pid: selected if pid == 77 else (_ for _ in ()).throw(detector.psutil.NoSuchProcess(pid)))
+
+    assert detector.find_process_by_pid(77, r"c:/camfrog/Camfrog Video Chat.exe") is selected
+    assert detector.find_process_by_pid(77, r"D:/Other/Camfrog Video Chat.exe") is None
