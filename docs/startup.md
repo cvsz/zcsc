@@ -5,7 +5,7 @@ Camfrog Status Changer is a Windows desktop application for user-managed Camfrog
 ## Requirements
 
 - Windows 10 or 11
-- Python 3.12 for development, or the packaged executable from a trusted workflow artifact
+- 64-bit CPython 3.12 for development/release builds, or the packaged executable from a trusted workflow artifact. Python 3.14/free-threaded 3.14t is not supported by the pinned Windows audit/build toolchain.
 - A locally installed Camfrog client for interactive integration
 
 ## Run from source
@@ -31,7 +31,7 @@ python -m compileall -q app.py automation camfrog system ui scripts version.py s
 .\build_exe.bat
 ```
 
-The Windows workflow and local batch entrypoints run `scripts/build_windows.py`, which installs the hash-locked build dependencies, runs tests and compile checks, builds the executable in isolated staging directories, verifies the SHA-256 manifest, and publishes the EXE/manifest pair to `dist/`. The workflow uploads a temporary artifact. Build outputs are not committed to Git.
+The Windows workflow and local batch entrypoints run `scripts/build_windows.py`. Local `build_exe.bat` explicitly invokes `py -3.12` instead of generic `py -3`, so a newer/free-threaded interpreter cannot silently become the release builder. The builder also fails fast unless it is running on 64-bit CPython 3.12. It installs the hash-locked build dependencies, runs tests and compile checks, builds the executable in isolated staging directories, verifies the SHA-256 manifest, and publishes the EXE/manifest pair to `dist/`. The workflow uploads a temporary artifact. Build outputs are not committed to Git.
 
 On POSIX development hosts, use `python3 -m pytest -q`, `python3 -m compileall ...`, and `make validate-repo`. The executable build requires Windows.
 
