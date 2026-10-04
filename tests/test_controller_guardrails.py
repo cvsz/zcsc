@@ -140,13 +140,12 @@ def test_status_target_refuses_equal_scoring_native_controls():
         CamfrogController(config())._find_target(window)
 
 
-def test_find_window_does_not_fallback_after_client_ambiguity():
+def test_find_window_requires_one_bound_pid_without_title_fallback():
     controller = CamfrogController(config())
-    controller._find_window_by_pid = lambda: (_ for _ in ()).throw(
-        CamfrogInstanceAmbiguityError("multiple clients")
-    )
+    controller._bound_process = lambda: SimpleNamespace(pid=42)
+    controller._find_window_by_pid = lambda: None
 
-    with pytest.raises(CamfrogInstanceAmbiguityError, match="multiple clients"):
+    with pytest.raises(RuntimeError, match="PID 42"):
         controller.find_window()
 
 
@@ -506,3 +505,48 @@ def test_legacy_fallback_setting_does_not_change_verified_uia_commit(monkeypatch
         ("key", "{ENTER}"),
         ("sleep", 0.25),
     ]
+
+
+
+def test_ensure_running_binds_single_existing_exact_process(monkeypatch):
+    cfg = config()
+    cfg["camfrog"]["executable"] = r"C:\Camfrog\Camfrog Video Chat.exe"
+    controller = CamfrogController(cfg)
+    process = SimpleNamespace(pid=321)
+    monkeypatch.setattr(controller, "_bound_process", lambda: None)
+    monkeypatch.setattr(controller, "available_client_processes", lambda: [process])
+
+    result = controller.ensure_running()
+
+    assert result.ok
+    assert controller.bound_pid == 321
+    assert "321" in result.message
+
+
+def test_ensure_running_refuses_to_guess_between_existing_pids(monkeypatch):
+    cfg = config()
+    cfg["camfrog"]["executable"] = r"C:\Camfrog\Camfrog Video Chat.exe"
+    controller = CamfrogController(cfg)
+    monkeypatch.setattr(controller, "_bound_process", lambda: None)
+    monkeypatch.setattr(
+        controller,
+        "available_client_processes",
+        lambda: [SimpleNamespace(pid=101), SimpleNamespace(pid=202)],
+    )
+
+    result = controller.ensure_running()
+
+    assert not result.ok
+    assert controller.bound_pid is None
+    assert "101" in result.message and "202" in result.message
+
+
+def test_client_processes_returns_only_bound_pid(monkeypatch):
+    cfg = config()
+    cfg["camfrog"]["executable"] = r"C:\Camfrog\Camfrog Video Chat.exe"
+    controller = CamfrogController(cfg)
+    selected = SimpleNamespace(pid=555)
+    controller._bound_pid = 555
+    monkeypatch.setattr("camfrog.controller.find_process_by_pid", lambda pid, executable_path=None: selected if pid == 555 else None)
+
+    assert controller.client_processes() == [selected]
