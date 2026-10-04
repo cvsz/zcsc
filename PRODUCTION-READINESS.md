@@ -4,7 +4,7 @@ Version: 2.2.5-rc13
 
 > RC10–RC12 are historical candidates. RC13 refactors Camfrog runtime targeting to a single verified PID session. ZCSC can launch/capture or explicitly bind one Camfrog PID, verifies the configured executable identity, and never falls back to another Camfrog process when that PID is lost. Live Camfrog behavior, code signing, SmartScreen reputation, and policy acceptance remain operator gates.
 
-Use the [RC12 final release runbook](docs/operations/rc12-final-release-runbook.md) and `scripts/collect_live_evidence.ps1` for the remaining operator gates. `scripts/validate_live_evidence.py` fails closed unless all ten live gates pass and the evidence matches the expected version/commit.
+Use the [RC13 final release runbook](docs/operations/rc13-final-release-runbook.md) and `scripts/collect_live_evidence.ps1` for the remaining operator gates. `scripts/validate_live_evidence.py` fails closed unless all ten live gates pass and the evidence matches the expected version/commit.
 
 ## Current audit evidence (2026-10-02)
 
