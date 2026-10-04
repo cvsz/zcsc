@@ -1,6 +1,6 @@
 # ZeaZDev-CamfrogStatusChanger
 
-Camfrog Status Changer is a Windows desktop companion for managing custom-status text and optional automation through Camfrog's visible UI. The source version is `2.2.5-rc12`; this version label does not certify a packaged, signed, or server-verified release. See [production readiness](PRODUCTION-READINESS.md) for the remaining Windows and Camfrog checks.
+Camfrog Status Changer is a Windows desktop companion for managing custom-status text and optional automation through Camfrog's visible UI. The source version is `2.2.5-rc13`; this version label does not certify a packaged, signed, or server-verified release. See [production readiness](PRODUCTION-READINESS.md) for the remaining Windows and Camfrog checks.
 
 ## Features
 
@@ -12,7 +12,7 @@ Camfrog Status Changer is a Windows desktop companion for managing custom-status
 - Open public Camfrog profile links in the default browser without collecting credentials or browser cookies.
 - Inspect selected Camfrog UI metadata using a read-only diagnostic path.
 
-This application does not provide concurrent multi-account isolation or map account profiles to isolated Camfrog processes.
+ZCSC now binds each active automation session to one verified Camfrog PID. It can launch Camfrog, capture the resulting PID, or explicitly bind an already-running verified PID. All status/chat/room UI discovery is restricted to that PID; if the PID exits, the session disconnects instead of silently switching to another Camfrog process. This is PID isolation, not full account/profile sandbox isolation.
 
 ## Install and run
 
