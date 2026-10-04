@@ -38,7 +38,7 @@ The working source no longer carries the legacy account-specific release bundles
 - [Security policy](SECURITY.md)
 - [Roadmap](ROADMAP.md)
 - [Production readiness](PRODUCTION-READINESS.md)
-- [RC12 final release runbook](docs/operations/rc12-final-release-runbook.md)
+- [RC13 final release runbook](docs/operations/rc13-final-release-runbook.md)
 - [Development and startup guide](docs/startup.md)
 - [Architecture](docs/architecture.md)
 - [AI playbooks](docs/ai/README.md)
