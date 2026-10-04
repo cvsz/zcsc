@@ -47,3 +47,6 @@ logs/
 # Local runtime data
 .tmp/
 tmp/
+
+# Local release evidence (may contain machine/user metadata)
+evidence/
