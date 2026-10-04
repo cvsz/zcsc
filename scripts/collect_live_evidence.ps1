@@ -1,6 +1,8 @@
 param(
     [string]$OutputDirectory = "",
     [string]$CamfrogPath = "",
+    [string]$ApplicationPath = "",
+    [string]$ManifestPath = "",
     [string]$ExpectedVersion = "2.2.5-rc12"
 )
 
@@ -42,6 +44,41 @@ if ($sourceVersion -ne $ExpectedVersion) {
 $gitSha = (& git -C $repoRoot rev-parse HEAD 2>$null).Trim()
 if (-not $gitSha) { throw "Unable to resolve exact Git commit. Run this from a Git checkout." }
 
+$dirty = & git -C $repoRoot status --porcelain 2>$null
+if ($LASTEXITCODE -ne 0) { throw "Unable to inspect Git worktree state." }
+if ($dirty) {
+    throw "Refusing live evidence collection from a dirty checkout. Commit/stash/revert local changes first."
+}
+
+if (-not $ApplicationPath) {
+    $ApplicationPath = Join-Path $repoRoot "dist\CamfrogStatusChanger.exe"
+}
+if (-not $ManifestPath) {
+    $ManifestPath = Join-Path $repoRoot "dist\release-manifest.json"
+}
+if (-not (Test-Path $ApplicationPath)) {
+    throw "Application candidate not found: $ApplicationPath"
+}
+if (-not (Test-Path $ManifestPath)) {
+    throw "Release manifest not found: $ManifestPath"
+}
+
+$appHash = (Get-FileHash -Algorithm SHA256 -Path $ApplicationPath).Hash.ToLowerInvariant()
+$appSize = (Get-Item $ApplicationPath).Length
+$manifest = Get-Content -Raw -Encoding UTF8 $ManifestPath | ConvertFrom-Json
+if ($manifest.artifact -ne (Split-Path -Leaf $ApplicationPath)) {
+    throw "Manifest artifact name does not match the application candidate."
+}
+if ($manifest.version -ne $sourceVersion) {
+    throw "Manifest version $($manifest.version) does not match source version $sourceVersion."
+}
+if ($manifest.sha256 -ne $appHash) {
+    throw "Manifest SHA-256 does not match the application candidate."
+}
+if ([int64]$manifest.size_bytes -ne [int64]$appSize) {
+    throw "Manifest size does not match the application candidate."
+}
+
 if (-not $CamfrogPath) {
     $programFilesX86 = [Environment]::GetEnvironmentVariable("ProgramFiles(x86)")
     $candidates = @(
@@ -75,6 +112,8 @@ Write-Host ""
 Write-Host "RC12 live validation collector"
 Write-Host "Source version: $sourceVersion"
 Write-Host "Git SHA: $gitSha"
+Write-Host "Application: $ApplicationPath"
+Write-Host "Application SHA256: $appHash"
 Write-Host "Camfrog: $CamfrogPath"
 Write-Host "Camfrog SHA256: $camfrogHash"
 Write-Host ""
@@ -101,6 +140,13 @@ $evidence = [ordered]@{
     schema_version = 1
     generated_utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     source = [ordered]@{ version = $sourceVersion; git_sha = $gitSha }
+    application = [ordered]@{
+        executable_path = $ApplicationPath
+        sha256 = $appHash
+        size_bytes = $appSize
+        manifest_path = $ManifestPath
+        manifest_sha256 = (Get-FileHash -Algorithm SHA256 -Path $ManifestPath).Hash.ToLowerInvariant()
+    }
     windows = [ordered]@{ edition = $os.Caption; version = $os.Version; build = $os.BuildNumber }
     camfrog = [ordered]@{
         executable_path = $CamfrogPath
