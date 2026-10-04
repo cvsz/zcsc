@@ -331,15 +331,20 @@ class CamfrogController:
         return self._desktop().window(handle=hwnd)
 
     def find_window(self):
-        if self._bound_process() is None:
+        process = self._bound_process()
+        if process is None:
             result = self.ensure_running()
             if not result.ok:
                 raise RuntimeError(result.message)
+            process = self._bound_process()
+        if process is None:
+            raise RuntimeError("Camfrog PID binding was lost before window discovery")
 
+        target_pid = int(process.pid)
         win = self._find_window_by_pid()
         if win is None:
             raise RuntimeError(
-                f"Camfrog PID {self._bound_pid} is running, but no top-level window owned by that PID was found"
+                f"Camfrog PID {target_pid} is running, but no top-level window owned by that PID was found"
             )
         return win
 
@@ -446,15 +451,15 @@ class CamfrogController:
         in different top-level windows across versions, so discovery includes all
         visible windows belonging to the configured Camfrog process.
         """
-        process = self._bound_process()
-        if process is None:
+        processes = self.client_processes()
+        if not processes:
             result = self.ensure_running()
             if not result.ok:
-                raise RuntimeError(result.message)
-            process = self._bound_process()
-        if process is None:
-            raise RuntimeError("No bound Camfrog PID is available")
-        target_pids = {int(process.pid)}
+                raise RuntimeError("No Camfrog process is bound. " + result.message)
+            processes = self.client_processes()
+        if not processes:
+            raise RuntimeError("No Camfrog process is bound")
+        target_pids = {int(process.pid) for process in processes}
 
         rows: list[dict] = []
         for window in self._desktop().windows(visible_only=True):
@@ -651,7 +656,9 @@ class CamfrogController:
             from pywinauto.keyboard import send_keys
 
             if not self.client_processes():
-                return ChangeResult(False, "Camfrog is not running; no status draft was written")
+                running = self.ensure_running()
+                if not running.ok:
+                    return ChangeResult(False, f"{running.message}; no status draft was written")
 
             win = self.find_window()
             combo = self._find_target(win)
