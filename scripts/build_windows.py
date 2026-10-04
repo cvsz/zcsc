@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import struct
 import tempfile
 from pathlib import Path
 from typing import Callable, Sequence
@@ -124,10 +125,25 @@ def _publish_pair(
             raise
 
 
+def validate_build_interpreter() -> None:
+    if sys.version_info[:2] != (3, 12):
+        raise RuntimeError(
+            "Windows release builds require CPython 3.12 x64; "
+            f"current interpreter is {sys.version.split()[0]} at {sys.executable}. "
+            "Use: py -3.12 scripts\\build_windows.py"
+        )
+    if struct.calcsize("P") != 8:
+        raise RuntimeError(
+            "Windows release builds require 64-bit CPython 3.12. "
+            f"Current interpreter is {struct.calcsize('P') * 8}-bit."
+        )
+
+
 def build(root: Path = ROOT, runner: CommandRunner = run_command) -> tuple[Path, Path]:
     root = Path(root).resolve()
     if sys.platform != "win32":
         raise RuntimeError("The Camfrog executable build requires Windows")
+    validate_build_interpreter()
 
     runner(
         [
