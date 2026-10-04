@@ -1,6 +1,6 @@
 # ZeaZDev-CamfrogStatusChanger
 
-Camfrog Status Changer is a Windows desktop companion for managing custom-status text and optional automation through Camfrog's visible UI. The source version is `2.2.5-rc11`; this version label does not certify a packaged, signed, or server-verified release. See [production readiness](PRODUCTION-READINESS.md) for the remaining Windows and Camfrog checks.
+Camfrog Status Changer is a Windows desktop companion for managing custom-status text and optional automation through Camfrog's visible UI. The source version is `2.2.5-rc12`; this version label does not certify a packaged, signed, or server-verified release. See [production readiness](PRODUCTION-READINESS.md) for the remaining Windows and Camfrog checks.
 
 ## Features
 
@@ -16,7 +16,7 @@ This application does not provide concurrent multi-account isolation or map acco
 
 ## Install and run
 
-For Windows requirements, source setup, validation, and build steps, follow [docs/startup.md](docs/startup.md). For a source checkout, run `run_dev.bat` from PowerShell at the repository root. Executable builds are produced by the Windows workflow and are not committed to this repository.
+For Windows requirements, source setup, validation, and build steps, follow [docs/startup.md](docs/startup.md). For a source checkout, run `run_dev.bat` from PowerShell at the repository root. Executable builds are produced by the Windows workflow and are not committed to this repository. The workflow verifies the release manifest and PE32+ x64 format, scans the built EXE with Microsoft Defender, and uploads those verification records with the candidate artifact.
 
 ## Security model
 
