@@ -4,6 +4,8 @@ Version: 2.2.5-rc12
 
 > RC10 and RC11 are historical candidates. RC12 adds exact-artifact verification and Microsoft Defender scanning in the Windows workflow. Live Camfrog behavior, code signing, SmartScreen reputation, and policy acceptance remain unverified operator gates.
 
+Use the [RC12 final release runbook](docs/operations/rc12-final-release-runbook.md) and `scripts/collect_live_evidence.ps1` for the remaining operator gates. `scripts/validate_live_evidence.py` fails closed unless all ten live gates pass and the evidence matches the expected version/commit.
+
 ## Current audit evidence (2026-10-02)
 
 - RC12 release automation verifies the exact Windows artifact against its manifest and source version, confirms SHA-256/size plus x64 PE32+ headers, and runs a Microsoft Defender custom scan before upload. The workflow stores machine-readable verification, Defender status, and scan output with the EXE.
