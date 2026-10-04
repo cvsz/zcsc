@@ -24,6 +24,7 @@ def test_local_build_entrypoints_share_the_python_builder() -> None:
     main_entrypoint = (ROOT / "build_exe.bat").read_text(encoding="utf-8")
     compatibility_entrypoint = (ROOT / "build_exe_fixed.bat").read_text(encoding="utf-8")
 
+    assert "py -3.12" in main_entrypoint
     assert "scripts\\build_windows.py" in main_entrypoint
     assert "build_exe.bat" in compatibility_entrypoint
     assert "PyInstaller" not in main_entrypoint + compatibility_entrypoint
@@ -271,3 +272,13 @@ def test_windows_workflow_enforces_release_artifact_and_defender_gates() -> None
     assert "windows-artifact-verification.json" in workflow
     assert "windows-defender-status.json" in workflow
     assert "windows-defender-scan.txt" in workflow
+
+
+
+def test_windows_builder_has_explicit_python312_x64_guard() -> None:
+    source = (ROOT / "scripts" / "build_windows.py").read_text(encoding="utf-8")
+
+    assert 'sys.version_info[:2] != (3, 12)' in source
+    assert 'struct.calcsize("P") != 8' in source
+    assert "Use: py -3.12 scripts" in source
+    assert "build_windows.py" in source
