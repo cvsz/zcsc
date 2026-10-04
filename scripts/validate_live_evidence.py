@@ -7,6 +7,8 @@ import argparse
 import json
 import re
 import sys
+import subprocess
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,7 +36,24 @@ def read_source_version(version_file: Path) -> str:
     return match.group(1)
 
 
-def validate_evidence(data: dict, *, expected_version: str, expected_git_sha: str | None = None) -> list[str]:
+def _nonempty_string(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def resolve_git_head(root: Path = ROOT) -> str:
+    completed = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    sha = completed.stdout.strip().lower()
+    if not GIT_SHA_RE.fullmatch(sha):
+        raise ValueError("Unable to resolve a full Git HEAD SHA")
+    return sha
+
+
+def validate_evidence(data: dict, *, expected_version: str, expected_git_sha: str) -> list[str]:
     errors: list[str] = []
     if data.get("schema_version") != 1:
         errors.append("schema_version must be 1")
@@ -53,6 +72,48 @@ def validate_evidence(data: dict, *, expected_version: str, expected_git_sha: st
     elif expected_git_sha and git_sha != expected_git_sha:
         errors.append(f"source.git_sha must equal expected commit {expected_git_sha}")
 
+    generated_utc = data.get("generated_utc")
+    if not _nonempty_string(generated_utc):
+        errors.append("generated_utc is required")
+    else:
+        try:
+            datetime.fromisoformat(str(generated_utc).replace("Z", "+00:00"))
+        except ValueError:
+            errors.append("generated_utc must be an ISO-8601 timestamp")
+
+    application = data.get("application")
+    if not isinstance(application, dict):
+        errors.append("application must be an object")
+        application = {}
+    if not _nonempty_string(application.get("executable_path")):
+        errors.append("application.executable_path is required")
+    if not _nonempty_string(application.get("manifest_path")):
+        errors.append("application.manifest_path is required")
+    if not isinstance(application.get("size_bytes"), int) or application.get("size_bytes", 0) <= 0:
+        errors.append("application.size_bytes must be a positive integer")
+    for field in ("sha256", "manifest_sha256"):
+        value = application.get(field)
+        if not isinstance(value, str) or not SHA256_RE.fullmatch(value):
+            errors.append(f"application.{field} must be a lowercase SHA-256 digest")
+
+    windows = data.get("windows")
+    if not isinstance(windows, dict):
+        errors.append("windows must be an object")
+        windows = {}
+    for field in ("edition", "version", "build"):
+        if not _nonempty_string(windows.get(field)):
+            errors.append(f"windows.{field} is required")
+
+    defender = data.get("defender")
+    if not isinstance(defender, dict):
+        errors.append("defender must be an object")
+        defender = {}
+    if defender.get("error"):
+        errors.append("defender evidence contains an error")
+    for field in ("AMServiceEnabled", "AntivirusEnabled", "RealTimeProtectionEnabled", "AntivirusSignatureVersion"):
+        if field not in defender:
+            errors.append(f"defender.{field} is required")
+
     camfrog = data.get("camfrog")
     if not isinstance(camfrog, dict):
         errors.append("camfrog must be an object")
@@ -60,8 +121,11 @@ def validate_evidence(data: dict, *, expected_version: str, expected_git_sha: st
     camfrog_sha = camfrog.get("sha256")
     if not isinstance(camfrog_sha, str) or not SHA256_RE.fullmatch(camfrog_sha):
         errors.append("camfrog.sha256 must be a lowercase SHA-256 digest")
-    if not str(camfrog.get("executable_path") or "").strip():
+    if not _nonempty_string(camfrog.get("executable_path")):
         errors.append("camfrog.executable_path is required")
+    for field in ("file_version", "product_version"):
+        if not _nonempty_string(camfrog.get(field)):
+            errors.append(f"camfrog.{field} is required")
 
     gates = data.get("gates")
     if not isinstance(gates, list):
@@ -111,19 +175,26 @@ def main() -> int:
     parser.add_argument(
         "--expected-git-sha",
         default=None,
-        help="Optional exact 40-character commit SHA required in the evidence.",
+        help="Exact commit SHA required in the evidence. Defaults to the current checkout HEAD.",
     )
     args = parser.parse_args()
 
     try:
         expected_version = read_source_version(args.version_file)
+        expected_git_sha = (
+            args.expected_git_sha.lower()
+            if args.expected_git_sha
+            else resolve_git_head(ROOT)
+        )
+        if not GIT_SHA_RE.fullmatch(expected_git_sha):
+            raise ValueError("--expected-git-sha must be a full 40-character lowercase SHA")
         data = json.loads(args.evidence.read_text(encoding="utf-8-sig"))
         if not isinstance(data, dict):
             raise ValueError("evidence root must be a JSON object")
         errors = validate_evidence(
             data,
             expected_version=expected_version,
-            expected_git_sha=args.expected_git_sha,
+            expected_git_sha=expected_git_sha,
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
