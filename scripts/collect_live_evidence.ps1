@@ -3,7 +3,7 @@ param(
     [string]$CamfrogPath = "",
     [string]$ApplicationPath = "",
     [string]$ManifestPath = "",
-    [string]$ExpectedVersion = "2.2.5-rc12"
+    [string]$ExpectedVersion = "2.2.5-rc13"
 )
 
 $ErrorActionPreference = "Stop"
@@ -109,7 +109,7 @@ try {
 }
 
 Write-Host ""
-Write-Host "RC12 live validation collector"
+Write-Host "RC13 live validation collector"
 Write-Host "Source version: $sourceVersion"
 Write-Host "Git SHA: $gitSha"
 Write-Host "Application: $ApplicationPath"

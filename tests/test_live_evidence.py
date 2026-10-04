@@ -19,7 +19,7 @@ def _passing_evidence(module):
     return {
         "schema_version": 1,
         "generated_utc": "2026-10-05T00:00:00Z",
-        "source": {"version": "2.2.5-rc12", "git_sha": "a" * 40},
+        "source": {"version": "2.2.5-rc13", "git_sha": "a" * 40},
         "application": {
             "executable_path": r"C:\test\CamfrogStatusChanger.exe",
             "sha256": "d" * 64,
@@ -57,7 +57,7 @@ def test_live_evidence_validator_accepts_all_required_passes():
     evidence = _passing_evidence(validator)
     assert validator.validate_evidence(
         evidence,
-        expected_version="2.2.5-rc12",
+        expected_version="2.2.5-rc13",
         expected_git_sha="a" * 40,
     ) == []
 
@@ -69,7 +69,7 @@ def test_live_evidence_validator_rejects_skip_and_false_ready_flag():
     evidence["production_gate_passed"] = True
     errors = validator.validate_evidence(
         evidence,
-        expected_version="2.2.5-rc12",
+        expected_version="2.2.5-rc13",
         expected_git_sha="a" * 40,
     )
     assert any("required gates not passed" in error for error in errors)
@@ -83,7 +83,7 @@ def test_live_evidence_validator_rejects_wrong_commit_and_bad_hash():
     evidence["camfrog"]["sha256"] = "not-a-hash"
     errors = validator.validate_evidence(
         evidence,
-        expected_version="2.2.5-rc12",
+        expected_version="2.2.5-rc13",
         expected_git_sha="a" * 40,
     )
     assert any("expected commit" in error for error in errors)
@@ -107,7 +107,7 @@ def test_live_evidence_validator_rejects_missing_application_identity():
 
     errors = validator.validate_evidence(
         evidence,
-        expected_version="2.2.5-rc12",
+        expected_version="2.2.5-rc13",
         expected_git_sha="a" * 40,
     )
 
@@ -123,7 +123,7 @@ def test_live_evidence_validator_rejects_defender_error_and_missing_environment(
 
     errors = validator.validate_evidence(
         evidence,
-        expected_version="2.2.5-rc12",
+        expected_version="2.2.5-rc13",
         expected_git_sha="a" * 40,
     )
 

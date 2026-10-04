@@ -1,13 +1,14 @@
 # Camfrog Status Changer — Production Readiness
 
-Version: 2.2.5-rc12
+Version: 2.2.5-rc13
 
-> RC10 and RC11 are historical candidates. RC12 adds exact-artifact verification and Microsoft Defender scanning in the Windows workflow. Live Camfrog behavior, code signing, SmartScreen reputation, and policy acceptance remain unverified operator gates.
+> RC10–RC12 are historical candidates. RC13 refactors Camfrog runtime targeting to a single verified PID session. ZCSC can launch/capture or explicitly bind one Camfrog PID, verifies the configured executable identity, and never falls back to another Camfrog process when that PID is lost. Live Camfrog behavior, code signing, SmartScreen reputation, and policy acceptance remain operator gates.
 
-Use the [RC12 final release runbook](docs/operations/rc12-final-release-runbook.md) and `scripts/collect_live_evidence.ps1` for the remaining operator gates. `scripts/validate_live_evidence.py` fails closed unless all ten live gates pass and the evidence matches the expected version/commit.
+Use the [RC13 final release runbook](docs/operations/rc13-final-release-runbook.md) and `scripts/collect_live_evidence.ps1` for the remaining operator gates. `scripts/validate_live_evidence.py` fails closed unless all ten live gates pass and the evidence matches the expected version/commit.
 
 ## Current audit evidence (2026-10-02)
 
+- RC13 PID-session implementation removes process selection by title fallback: status/chat/room discovery is constrained to one bound PID whose executable must match the configured Camfrog executable. Multiple pre-existing Camfrog processes require an explicit PID selection instead of guessing.
 - RC12 release automation verifies the exact Windows artifact against its manifest and source version, confirms SHA-256/size plus x64 PE32+ headers, and runs a Microsoft Defender custom scan before upload. The workflow stores machine-readable verification, Defender status, and scan output with the EXE.
 - The Windows workflow now uses the same immutable actions/setup-python v7.0.0 revision as repository CI. These gates strengthen package evidence but do not prove live Camfrog server publication, UI selectors on a user's installed Camfrog build, code signing, or SmartScreen reputation.
 - Latest P4 reviewer-follow-up local checks: 302 pytest tests passed; `pip-audit` reported no known vulnerabilities, and `compileall` plus `scripts/validate_repo.py` passed. Implementation commit `1a127c6c3d43fa0364931063ed15ae798ed07f7e` passed all required GitHub checks and the Windows x64 workflow. Its RC11 executable is 21,107,220 bytes with SHA-256 `bd72a627db812816df64d0e2446a62039951bacbb646f5d391e13b901d4c8219` and PE32+ x64 format. This candidate was not launched or code-signed; live Camfrog behavior remains unverified. The earlier manual Windows 11 Enterprise build below predates the current reviewer fixes and is historical evidence only.

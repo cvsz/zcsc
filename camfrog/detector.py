@@ -69,6 +69,29 @@ def find_processes(executable_path: str | os.PathLike[str] | None = None) -> lis
     return found
 
 
+def find_process_by_pid(
+    pid: int,
+    executable_path: str | os.PathLike[str] | None = None,
+) -> psutil.Process | None:
+    """Return one verified Camfrog client process for an exact PID."""
+    try:
+        process = psutil.Process(int(pid))
+        executable = _process_executable(process)
+        expected_path = _normalized_path(executable_path) if executable_path else ""
+        if expected_path:
+            if not executable or _normalized_path(executable) != expected_path:
+                return None
+        else:
+            identity = executable or process.name()
+            if not _is_client_executable_name(identity):
+                return None
+        if not process.is_running():
+            return None
+        return process
+    except (psutil.NoSuchProcess, psutil.AccessDenied, OSError, TypeError, ValueError):
+        return None
+
+
 def discover_executable() -> str:
     # Prefer the current per-user Camfrog installation used by this build.
     if PREFERRED_PATH.exists():

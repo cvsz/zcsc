@@ -271,6 +271,42 @@ class AppUI(ctk.CTk):
         ctk.CTkButton(exe_frame, text="Native profile", width=110, command=self._show_native_profile).grid(row=1, column=3, padx=(0, 10), pady=(0, 10))
         exe_frame.grid_columnconfigure(0, weight=1)
 
+        runtime_frame = ctk.CTkFrame(self.setup_tab)
+        runtime_frame.pack(fill="x", pady=6)
+        ctk.CTkLabel(runtime_frame, text="Camfrog Runtime", font=ctk.CTkFont(weight="bold")).grid(
+            row=0, column=0, columnspan=5, sticky="w", padx=10, pady=(10, 4)
+        )
+        self.camfrog_pid_var = tk.StringVar(value="PID: not connected")
+        self.camfrog_pid_entry_var = tk.StringVar()
+        ctk.CTkLabel(runtime_frame, textvariable=self.camfrog_pid_var).grid(
+            row=1, column=0, sticky="w", padx=10, pady=(0, 10)
+        )
+        ctk.CTkEntry(
+            runtime_frame,
+            textvariable=self.camfrog_pid_entry_var,
+            width=110,
+            placeholder_text="PID",
+        ).grid(row=1, column=1, padx=(4, 6), pady=(0, 10))
+        ctk.CTkButton(
+            runtime_frame,
+            text="Bind PID",
+            width=90,
+            command=self._bind_camfrog_pid,
+        ).grid(row=1, column=2, padx=(0, 6), pady=(0, 10))
+        ctk.CTkButton(
+            runtime_frame,
+            text="Start / Connect",
+            width=120,
+            command=self._start_or_connect_camfrog,
+        ).grid(row=1, column=3, padx=(0, 6), pady=(0, 10))
+        ctk.CTkButton(
+            runtime_frame,
+            text="Disconnect",
+            width=100,
+            command=self._disconnect_camfrog,
+        ).grid(row=1, column=4, padx=(0, 10), pady=(0, 10))
+        runtime_frame.grid_columnconfigure(0, weight=1)
+
         target_frame = ctk.CTkFrame(self.setup_tab)
         target_frame.pack(fill="x", pady=6)
         ctk.CTkLabel(target_frame, text="UI Automation target", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, columnspan=4, sticky="w", padx=10, pady=(10, 4))
@@ -1076,6 +1112,7 @@ class AppUI(ctk.CTk):
         # Translate all static widgets by their current EN/TH text.
         pairs = {
             "Camfrog executable":"ไฟล์โปรแกรม Camfrog", "Browse":"เลือกไฟล์", "Detect":"ตรวจหา", "Native profile":"โปรไฟล์ Native",
+            "Camfrog Runtime":"การทำงาน Camfrog", "Bind PID":"ผูก PID", "Start / Connect":"เปิด / เชื่อมต่อ", "Disconnect":"ยกเลิกการเชื่อมต่อ",
             "Camfrog web profile":"โปรไฟล์ Camfrog บนเว็บ", "Camfrog nickname":"ชื่อบัญชี Camfrog",
             "Open profile":"เปิดโปรไฟล์", "Copy profile link":"คัดลอกลิงก์โปรไฟล์",
             "Open profiles & leaderboard":"เปิดโปรไฟล์และอันดับสมาชิก",
@@ -1766,6 +1803,41 @@ class AppUI(ctk.CTk):
             self.state_label.configure(text=self._tr(f"Detected: {path}", f"ตรวจพบ: {path}"))
         elif not silent:
             messagebox.showwarning("Camfrog", self._tr("Camfrog executable/process was not detected. Use Browse to select Camfrog.exe.","ไม่พบโปรแกรม/process Camfrog กรุณาใช้ปุ่มเลือกไฟล์"))
+
+    def _refresh_camfrog_pid(self, message: str = ""):
+        pid = self.controller.bound_pid
+        self.camfrog_pid_var.set(f"PID: {pid}" if pid else "PID: not connected")
+        if pid:
+            self.camfrog_pid_entry_var.set(str(pid))
+        if message:
+            self.state_label.configure(text=message)
+
+    def _start_or_connect_camfrog(self):
+        self._sync_ui_to_config()
+        self.state_label.configure(text=self._tr("Starting/connecting Camfrog...", "กำลังเปิด/เชื่อมต่อ Camfrog..."))
+        threading.Thread(target=self._start_or_connect_camfrog_worker, daemon=True).start()
+
+    def _start_or_connect_camfrog_worker(self):
+        result = self.controller.start_or_connect()
+        self.after(0, lambda: self._refresh_camfrog_pid(result.message))
+        if not result.ok:
+            self.after(0, lambda: messagebox.showerror("Camfrog Runtime", result.message))
+
+    def _bind_camfrog_pid(self):
+        self._sync_ui_to_config()
+        try:
+            pid = int(self.camfrog_pid_entry_var.get().strip())
+        except ValueError:
+            messagebox.showerror("Camfrog Runtime", "Enter a numeric Camfrog PID.")
+            return
+        result = self.controller.bind_pid(pid)
+        self._refresh_camfrog_pid(result.message)
+        if not result.ok:
+            messagebox.showerror("Camfrog Runtime", result.message)
+
+    def _disconnect_camfrog(self):
+        result = self.controller.disconnect_pid()
+        self._refresh_camfrog_pid(result.message)
 
     def _save(self):
         c = self._sync_ui_to_config()

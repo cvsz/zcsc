@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Runtime — 2.2.5-rc13 PID-owned Camfrog session
+
+- Bind automation to exactly one verified Camfrog PID at a time.
+- Start Camfrog from ZCSC and capture the launched/replacement child PID when the client re-spawns.
+- Add Setup runtime controls for PID status, explicit PID binding, Start / Connect, and Disconnect.
+- Remove title-regex fallback for selecting a Camfrog process/window; top-level windows must belong to the bound PID.
+- Verify the bound PID still maps to the configured Camfrog executable before every process lookup.
+- Fail closed when multiple unbound Camfrog processes already exist instead of guessing.
+- Keep status-control ambiguity protections inside the selected PID.
+
+
 ### Build — 2.2.5-rc12 release gates
 
 - Upgrade the Windows build workflow to the same immutable actions/setup-python v7 revision used by repository CI.

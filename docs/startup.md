@@ -38,14 +38,14 @@ On POSIX development hosts, use `python3 -m pytest -q`, `python3 -m compileall .
 ## First interactive run
 
 1. Start Camfrog and sign in through its own UI.
-2. Launch Camfrog Status Changer and use **Setup** to select or detect the Camfrog executable.
+2. Launch Camfrog Status Changer and use **Setup** to select or detect the Camfrog executable. In **Camfrog Runtime**, use **Start / Connect** to let ZCSC launch/bind one Camfrog PID, or enter a known Camfrog PID and choose **Bind PID**.
 3. Configure status text or UI Automation selectors only for controls you have inspected on your Camfrog build.
 4. Keep room actions and moderation disabled until the room, selectors, syntax, and permissions have been verified in a controlled test room.
 5. Test status submission with a harmless value. A local UI write and Enter dispatch do not prove server-visible publication.
 
 Camfrog's UI and internal control behavior may change between client versions. Unknown controls must not be guessed; the status integration requires a positively identified control or an explicit configured automation ID.
 
-Automatic detection checks the supported per-user Camfrog install location, then known client executable names and legacy Program Files locations. If more than one window matches the selected client, close the extra client windows or select the intended executable; automation stops instead of guessing which account to control.
+Automatic executable detection checks the supported per-user Camfrog install location, then known client executable names and legacy Program Files locations. Runtime automation is PID-bound: ZCSC verifies that the bound PID belongs to the configured Camfrog executable and considers only windows owned by that PID. If multiple Camfrog processes already exist and no PID is bound, **Start / Connect** refuses to guess; close extras or enter the intended PID explicitly. If the bound PID exits or no longer matches the configured executable, the session disconnects and automation stops.
 
 ## Configuration and security
 
