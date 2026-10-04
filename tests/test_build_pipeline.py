@@ -204,3 +204,70 @@ def test_manifest_publish_failure_restores_the_previous_executable(
     assert manifest_replace_failed
     assert current_executable.read_bytes() == b"previous executable"
     assert json.loads(current_manifest.read_text(encoding="utf-8")) == old_manifest
+
+
+
+def _write_minimal_x64_pe(path: Path) -> None:
+    data = bytearray(0x200)
+    data[:2] = b"MZ"
+    pe_offset = 0x80
+    data[0x3C:0x40] = pe_offset.to_bytes(4, "little")
+    data[pe_offset : pe_offset + 4] = b"PE\0\0"
+    data[pe_offset + 4 : pe_offset + 6] = (0x8664).to_bytes(2, "little")
+    data[pe_offset + 24 : pe_offset + 26] = (0x20B).to_bytes(2, "little")
+    path.write_bytes(data)
+
+
+def test_windows_artifact_verifier_checks_manifest_hash_version_and_pe(tmp_path: Path) -> None:
+    verifier = _load_script("verify_windows_artifact")
+    manifest_writer = _load_script("write_release_manifest")
+    artifact = tmp_path / "CamfrogStatusChanger.exe"
+    version_file = tmp_path / "version.py"
+    manifest_path = tmp_path / "release-manifest.json"
+    _write_minimal_x64_pe(artifact)
+    version_file.write_text('VERSION = "2.2.5-rc12"\n', encoding="utf-8")
+    manifest_writer.write_manifest(
+        artifact,
+        manifest_path,
+        version="2.2.5-rc12",
+        built_utc="2026-10-05T00:00:00Z",
+    )
+
+    report = verifier.verify(artifact, manifest_path, version_file=version_file)
+
+    assert report["verified"] is True
+    assert report["version"] == "2.2.5-rc12"
+    assert report["machine"] == "0x8664"
+    assert report["pe_format"] == "PE32+"
+
+
+def test_windows_artifact_verifier_rejects_manifest_mismatch(tmp_path: Path) -> None:
+    verifier = _load_script("verify_windows_artifact")
+    manifest_writer = _load_script("write_release_manifest")
+    artifact = tmp_path / "CamfrogStatusChanger.exe"
+    version_file = tmp_path / "version.py"
+    manifest_path = tmp_path / "release-manifest.json"
+    _write_minimal_x64_pe(artifact)
+    version_file.write_text('VERSION = "2.2.5-rc12"\n', encoding="utf-8")
+    manifest_writer.write_manifest(
+        artifact,
+        manifest_path,
+        version="wrong-version",
+        built_utc="2026-10-05T00:00:00Z",
+    )
+
+    with pytest.raises(ValueError, match="version"):
+        verifier.verify(artifact, manifest_path, version_file=version_file)
+
+
+def test_windows_workflow_enforces_release_artifact_and_defender_gates() -> None:
+    workflow = (ROOT / ".github/workflows/camfrog-status-changer.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97" in workflow
+    assert "python scripts/verify_windows_artifact.py" in workflow
+    assert "-ScanType 3 -File $exe -DisableRemediation" in workflow
+    assert "windows-artifact-verification.json" in workflow
+    assert "windows-defender-status.json" in workflow
+    assert "windows-defender-scan.txt" in workflow

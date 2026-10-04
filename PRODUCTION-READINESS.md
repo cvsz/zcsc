@@ -1,11 +1,13 @@
 # Camfrog Status Changer — Production Readiness
 
-Version: 2.2.5-rc11
+Version: 2.2.5-rc12
 
-> RC10 and RC11 refer to prior candidate builds. Re-run the Windows workflow on the exact release candidate before using its build evidence; live Camfrog behavior remains unverified.
+> RC10 and RC11 are historical candidates. RC12 adds exact-artifact verification and Microsoft Defender scanning in the Windows workflow. Live Camfrog behavior, code signing, SmartScreen reputation, and policy acceptance remain unverified operator gates.
 
 ## Current audit evidence (2026-10-02)
 
+- RC12 release automation verifies the exact Windows artifact against its manifest and source version, confirms SHA-256/size plus x64 PE32+ headers, and runs a Microsoft Defender custom scan before upload. The workflow stores machine-readable verification, Defender status, and scan output with the EXE.
+- The Windows workflow now uses the same immutable actions/setup-python v7.0.0 revision as repository CI. These gates strengthen package evidence but do not prove live Camfrog server publication, UI selectors on a user's installed Camfrog build, code signing, or SmartScreen reputation.
 - Latest P4 reviewer-follow-up local checks: 302 pytest tests passed; `pip-audit` reported no known vulnerabilities, and `compileall` plus `scripts/validate_repo.py` passed. Implementation commit `1a127c6c3d43fa0364931063ed15ae798ed07f7e` passed all required GitHub checks and the Windows x64 workflow. Its RC11 executable is 21,107,220 bytes with SHA-256 `bd72a627db812816df64d0e2446a62039951bacbb646f5d391e13b901d4c8219` and PE32+ x64 format. This candidate was not launched or code-signed; live Camfrog behavior remains unverified. The earlier manual Windows 11 Enterprise build below predates the current reviewer fixes and is historical evidence only.
 - P4 verifies the foreground PID and exact status Edit immediately before Enter; when UIA cannot uniquely identify an Edit, its foreground route sends no keyboard input. Coordinate fallbacks require confirmed per-monitor-v2 DPI awareness and a uniquely identified Edit; concurrent status sends serialize behind the monotonic minimum interval, and rotation windows use aware local time. The history-source and one-character marquee settings use config schema 3 migrations from schema 1 and 2; no runtime dependency changed.
 - Pre-push audit follow-up blocks background coordinate clicks, pastes, and Enter when no Edit is identifiable. Local and exact implementation-head Windows checks pass.
