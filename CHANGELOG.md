@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Build — 2.2.5-rc12 release gates
+
+- Upgrade the Windows build workflow to the same immutable actions/setup-python v7 revision used by repository CI.
+- Verify the packaged executable against release-manifest.json, source version, SHA-256, byte size, Windows x64 machine type, and PE32+ format before artifact upload.
+- Run a Microsoft Defender custom scan against the exact packaged EXE without adding antivirus exclusions or silently bypassing detections.
+- Upload machine-readable artifact verification plus Defender status and scan output beside the executable and release manifest.
+- Add regression tests that keep these release gates present. Live Camfrog publication, interactive Windows behavior, code signing, SmartScreen reputation, and Camfrog policy acceptance remain operator gates.
+
+
 ### Fixed — P1 status styles and text
 
 - Validate color templates using only one `{text}` placeholder and an optional `{color}` placeholder. Invalid templates now fall back to unstyled text, do not report an applied color, and show a localized warning in the status preview.
