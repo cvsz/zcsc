@@ -1818,7 +1818,7 @@ class AppUI(ctk.CTk):
         threading.Thread(target=self._start_or_connect_camfrog_worker, daemon=True).start()
 
     def _start_or_connect_camfrog_worker(self):
-        result = self.controller.ensure_running()
+        result = self.controller.start_or_connect()
         self.after(0, lambda: self._refresh_camfrog_pid(result.message))
         if not result.ok:
             self.after(0, lambda: messagebox.showerror("Camfrog Runtime", result.message))
