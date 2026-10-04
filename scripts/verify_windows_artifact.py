@@ -8,12 +8,16 @@ import json
 import os
 import re
 import struct
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 from scripts.write_release_manifest import sha256_file
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 VERSION_RE = re.compile(r'^VERSION\s*=\s*"([^"]+)"', re.MULTILINE)
 IMAGE_FILE_MACHINE_AMD64 = 0x8664
 PE32_PLUS_MAGIC = 0x20B
