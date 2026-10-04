@@ -272,10 +272,10 @@ def test_stage_status_text_verifies_draft_without_sending_enter(monkeypatch):
     monkeypatch.setitem(sys.modules, "pyperclip", pyperclip)
     monkeypatch.setitem(sys.modules, "pywinauto", pywinauto)
     monkeypatch.setitem(sys.modules, "pywinauto.keyboard", keyboard)
-    monkeypatch.setattr("camfrog.controller.find_processes", lambda executable_path=None: [123])
     monkeypatch.setattr("camfrog.controller.time.sleep", lambda seconds: events.append(("sleep", seconds)))
 
     controller = CamfrogController(config())
+    controller.client_processes = lambda: [SimpleNamespace(pid=123)]
     controller.find_window = lambda: Window()
     controller._find_target = lambda _window: Combo()
 
