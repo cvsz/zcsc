@@ -8,7 +8,7 @@ import time
 import threading
 from dataclasses import dataclass
 
-from .detector import find_processes
+from .detector import find_process_by_pid, find_processes
 from .background_win32 import (
     STATUS_INPUT_SETTLE_SECONDS,
     STATUS_COMMIT_SETTLE_SECONDS,
@@ -66,6 +66,8 @@ class CamfrogController:
         self.clock = clock
         self._apply_lock = threading.Lock()
         self._last_send_monotonic = 0.0
+        self._bound_pid: int | None = None
+        self._owned_process = None
 
     def _monotonic(self) -> float:
         return float(self.clock.monotonic()) if self.clock is not None else time.monotonic()
@@ -93,9 +95,49 @@ class CamfrogController:
                 return True
         return False
 
+    @property
+    def bound_pid(self) -> int | None:
+        return self._bound_pid
+
+    def _configured_executable(self) -> str:
+        return str(self.config.get("camfrog", {}).get("executable", "")).strip()
+
+    def _bound_process(self):
+        if not self._bound_pid:
+            return None
+        process = find_process_by_pid(
+            self._bound_pid,
+            executable_path=self._configured_executable() or None,
+        )
+        if process is None:
+            log.warning("Bound Camfrog PID %s is no longer valid; disconnecting", self._bound_pid)
+            self._bound_pid = None
+            self._owned_process = None
+        return process
+
+    def bind_pid(self, pid: int) -> ChangeResult:
+        process = find_process_by_pid(
+            int(pid),
+            executable_path=self._configured_executable() or None,
+        )
+        if process is None:
+            return ChangeResult(False, "Selected PID is not the configured Camfrog executable or is no longer running")
+        self._bound_pid = int(process.pid)
+        self._owned_process = None
+        return ChangeResult(True, f"Camfrog PID {self._bound_pid} connected")
+
+    def disconnect_pid(self) -> ChangeResult:
+        previous = self._bound_pid
+        self._bound_pid = None
+        self._owned_process = None
+        return ChangeResult(True, f"Camfrog PID {previous} disconnected" if previous else "Camfrog is already disconnected")
+
+    def available_client_processes(self):
+        return find_processes(executable_path=self._configured_executable() or None)
+
     def client_processes(self):
-        executable = str(self.config.get("camfrog", {}).get("executable", "")).strip()
-        return find_processes(executable_path=executable or None)
+        process = self._bound_process()
+        return [process] if process is not None else []
 
     def _wait_for_send_slot(self, cancelled=None) -> bool:
         """Enforce spacing between Camfrog send attempts instead of dropping early ones."""
@@ -166,20 +208,62 @@ class CamfrogController:
             self._sleep(min(FOREGROUND_VERIFY_POLL_SECONDS, remaining))
 
     def ensure_running(self) -> ChangeResult:
-        if self.client_processes():
-            return ChangeResult(True, "Camfrog is running")
-        exe = self.config["camfrog"].get("executable", "").strip()
+        bound = self._bound_process()
+        if bound is not None:
+            return ChangeResult(True, f"Camfrog PID {bound.pid} is connected")
+
+        exe = self._configured_executable()
         if not exe:
             return ChangeResult(False, "Camfrog executable is not configured")
+
+        existing = self.available_client_processes()
+        if len(existing) == 1:
+            self._bound_pid = int(existing[0].pid)
+            self._owned_process = None
+            return ChangeResult(True, f"Connected to existing Camfrog PID {self._bound_pid}")
+        if len(existing) > 1:
+            pids = ", ".join(str(int(process.pid)) for process in existing)
+            return ChangeResult(
+                False,
+                f"Multiple Camfrog processes are already running ({pids}). "
+                "Close extras, or select one PID explicitly before automation.",
+            )
+
+        before = {int(process.pid) for process in existing}
         try:
-            subprocess.Popen([exe], shell=False)
+            launched = subprocess.Popen([exe], shell=False)
         except Exception as exc:
             return ChangeResult(False, f"Failed to start Camfrog: {exc}")
-        for _ in range(30):
-            if self.client_processes():
-                return ChangeResult(True, "Camfrog started")
-            time.sleep(0.5)
-        return ChangeResult(False, "Camfrog did not start within timeout")
+
+        self._owned_process = launched
+        launched_pid = int(launched.pid)
+        for _ in range(40):
+            direct = find_process_by_pid(launched_pid, executable_path=exe)
+            if direct is not None:
+                self._bound_pid = launched_pid
+                return ChangeResult(True, f"Camfrog started and bound to PID {launched_pid}")
+
+            candidates = [
+                process
+                for process in self.available_client_processes()
+                if int(process.pid) not in before
+            ]
+            if len(candidates) == 1:
+                self._bound_pid = int(candidates[0].pid)
+                return ChangeResult(
+                    True,
+                    f"Camfrog started and rebound to child PID {self._bound_pid}",
+                )
+            if len(candidates) > 1:
+                self._owned_process = None
+                return ChangeResult(
+                    False,
+                    "Camfrog launch produced multiple new client processes; refusing to guess a PID",
+                )
+            time.sleep(0.25)
+
+        self._owned_process = None
+        return ChangeResult(False, "Camfrog did not expose a verifiable client PID within timeout")
 
     def _desktop(self):
         if os.name != "nt":
@@ -188,22 +272,16 @@ class CamfrogController:
         return Desktop(backend="uia")
 
     def _find_window_by_pid(self):
-        """Locate Camfrog's main top-level HWND from its process id(s).
-
-        This avoids depending on the localized/window title, which can change
-        between Camfrog releases.  The returned HWND is wrapped with the UIA
-        backend so the rest of the controller can keep using pywinauto.
-        """
+        """Return the best top-level window owned by the single bound PID."""
         if os.name != "nt":
             return None
 
         import win32gui
 
-        processes = self.client_processes()
-        pids = {int(p.pid) for p in processes}
-        if not pids:
+        process = self._bound_process()
+        if process is None:
             return None
-
+        target_pid = int(process.pid)
         candidates = []
 
         def enum_cb(hwnd, _):
@@ -211,7 +289,7 @@ class CamfrogController:
                 if not win32gui.IsWindow(hwnd):
                     return True
                 _tid, pid = win32gui.GetWindowThreadProcessId(hwnd)
-                if int(pid) not in pids:
+                if int(pid) != target_pid:
                     return True
 
                 title = win32gui.GetWindowText(hwnd) or ""
@@ -222,9 +300,9 @@ class CamfrogController:
                 area = width * height
 
                 score = 0
-                if "camfrog" in title.lower():
+                if "camfrog" in title.casefold():
                     score += 300
-                if "video chat" in title.lower():
+                if "video chat" in title.casefold():
                     score += 150
                 if win32gui.IsWindowVisible(hwnd):
                     score += 80
@@ -234,8 +312,7 @@ class CamfrogController:
                     score += 40
                 if title:
                     score += 20
-
-                candidates.append((score, area, hwnd, title, cls, int(pid)))
+                candidates.append((score, area, int(hwnd), title, cls))
             except Exception:
                 pass
             return True
@@ -244,53 +321,27 @@ class CamfrogController:
         if not candidates:
             return None
 
-        process_ids = {item[5] for item in candidates}
-        if len(process_ids) > 1:
-            raise CamfrogInstanceAmbiguityError(
-                "Multiple Camfrog client windows are open. Close all but the client to automate, then retry."
-            )
-
-        candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
-        best_rank = candidates[0][:2]
-        best_candidates = [item for item in candidates if item[:2] == best_rank]
-        if len(best_candidates) != 1:
-            raise CamfrogInstanceAmbiguityError(
-                "Multiple Camfrog windows have the same main-window score; refusing to guess"
-            )
-        hwnd = int(best_candidates[0][2])
+        candidates.sort(key=lambda item: (item[0], item[1], -item[2]), reverse=True)
+        best = candidates[0]
+        hwnd = best[2]
         log.info(
-            "Camfrog window selected by PID: hwnd=%s title=%r class=%r score=%s",
-            hwnd, best_candidates[0][3], best_candidates[0][4], best_candidates[0][0],
+            "Camfrog window selected inside bound PID %s: hwnd=%s title=%r class=%r score=%s",
+            target_pid, hwnd, best[3], best[4], best[0],
         )
         return self._desktop().window(handle=hwnd)
 
     def find_window(self):
-        # Prefer PID-based discovery. It survives title/localization changes and
-        # also finds minimized windows because EnumWindows does not require them
-        # to be foreground/visible.
-        try:
-            win = self._find_window_by_pid()
-            if win is not None:
-                return win
-        except CamfrogInstanceAmbiguityError:
-            raise
-        except Exception as exc:
-            log.warning("PID-based Camfrog window discovery failed: %s", exc)
+        if self._bound_process() is None:
+            result = self.ensure_running()
+            if not result.ok:
+                raise RuntimeError(result.message)
 
-        # Compatibility fallback for older installations.
-        title_re = self.config["camfrog"].get("window_title_regex") or ".*Camfrog Video Chat.*"
-        desktop = self._desktop()
-        wins = desktop.windows(title_re=title_re, visible_only=False)
-        if not wins:
+        win = self._find_window_by_pid()
+        if win is None:
             raise RuntimeError(
-                "Camfrog process is running, but its main window was not found. "
-                "Use Detect after Camfrog has finished opening, or restart Camfrog and retry."
+                f"Camfrog PID {self._bound_pid} is running, but no top-level window owned by that PID was found"
             )
-        if len(wins) != 1:
-            raise CamfrogInstanceAmbiguityError(
-                "Multiple Camfrog windows match the configured title. Narrow the title filter or close extra matching windows."
-            )
-        return wins[0]
+        return win
 
     def native_profile_info(self) -> dict:
         exe = self.config.get("camfrog", {}).get("executable", "")
@@ -395,9 +446,15 @@ class CamfrogController:
         in different top-level windows across versions, so discovery includes all
         visible windows belonging to the configured Camfrog process.
         """
-        target_pids = {int(process.pid) for process in self.client_processes()}
-        if not target_pids:
-            raise RuntimeError("No Camfrog process was found. Start Camfrog, open Text Over Video, and inspect again")
+        process = self._bound_process()
+        if process is None:
+            result = self.ensure_running()
+            if not result.ok:
+                raise RuntimeError(result.message)
+            process = self._bound_process()
+        if process is None:
+            raise RuntimeError("No bound Camfrog PID is available")
+        target_pids = {int(process.pid)}
 
         rows: list[dict] = []
         for window in self._desktop().windows(visible_only=True):
