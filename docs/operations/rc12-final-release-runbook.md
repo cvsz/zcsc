@@ -22,12 +22,14 @@ py -3 -c "import version; print(version.VERSION)"
 
 Expected source version: `2.2.5-rc12`.
 
-Use the exact built candidate corresponding to that source revision. Do not substitute an older RC binary.
+Use the exact built candidate corresponding to that source revision. Do not substitute an older RC binary. The checkout must be clean; the collector refuses evidence collection if tracked or untracked worktree changes are present.
 
 ## 2. Run live validation collector
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\collect_live_evidence.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\collect_live_evidence.ps1 `
+  -ApplicationPath .\dist\CamfrogStatusChanger.exe `
+  -ManifestPath .\dist\release-manifest.json
 ```
 
 If Camfrog is installed elsewhere:
@@ -36,7 +38,7 @@ If Camfrog is installed elsewhere:
 powershell -ExecutionPolicy Bypass -File .\scripts\collect_live_evidence.ps1 -CamfrogPath "C:\path\to\Camfrog Video Chat.exe"
 ```
 
-The collector records the exact project version and Git SHA, Windows build information, Camfrog executable hash/version, Defender status, and all ten P0 gate outcomes. It does not sign in, read credentials, or automatically send room actions.
+The collector verifies the application candidate against its release manifest first, then records the exact application SHA-256/size/manifest identity, project version and Git SHA, Windows build information, Camfrog executable hash/version, Defender status, and all ten P0 gate outcomes. It does not sign in, read credentials, or automatically send room actions.
 
 ## 3. Required live gates
 
