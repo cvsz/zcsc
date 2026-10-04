@@ -508,7 +508,7 @@ def test_legacy_fallback_setting_does_not_change_verified_uia_commit(monkeypatch
 
 
 
-def test_ensure_running_binds_single_existing_exact_process(monkeypatch):
+def test_start_or_connect_binds_single_existing_exact_process(monkeypatch):
     cfg = config()
     cfg["camfrog"]["executable"] = r"C:\Camfrog\Camfrog Video Chat.exe"
     controller = CamfrogController(cfg)
@@ -516,14 +516,14 @@ def test_ensure_running_binds_single_existing_exact_process(monkeypatch):
     monkeypatch.setattr(controller, "_bound_process", lambda: None)
     monkeypatch.setattr(controller, "available_client_processes", lambda: [process])
 
-    result = controller.ensure_running()
+    result = controller.start_or_connect()
 
     assert result.ok
     assert controller.bound_pid == 321
     assert "321" in result.message
 
 
-def test_ensure_running_refuses_to_guess_between_existing_pids(monkeypatch):
+def test_start_or_connect_refuses_to_guess_between_existing_pids(monkeypatch):
     cfg = config()
     cfg["camfrog"]["executable"] = r"C:\Camfrog\Camfrog Video Chat.exe"
     controller = CamfrogController(cfg)
@@ -534,7 +534,7 @@ def test_ensure_running_refuses_to_guess_between_existing_pids(monkeypatch):
         lambda: [SimpleNamespace(pid=101), SimpleNamespace(pid=202)],
     )
 
-    result = controller.ensure_running()
+    result = controller.start_or_connect()
 
     assert not result.ok
     assert controller.bound_pid is None
@@ -550,3 +550,59 @@ def test_client_processes_returns_only_bound_pid(monkeypatch):
     monkeypatch.setattr("camfrog.controller.find_process_by_pid", lambda pid, executable_path=None: selected if pid == 555 else None)
 
     assert controller.client_processes() == [selected]
+
+
+
+def test_ensure_running_never_discovers_or_launches_after_disconnect(monkeypatch):
+    cfg = config()
+    cfg["camfrog"]["executable"] = r"C:\Camfrog\Camfrog Video Chat.exe"
+    controller = CamfrogController(cfg)
+    controller._session_state = "disconnected"
+    monkeypatch.setattr(
+        controller,
+        "available_client_processes",
+        lambda: (_ for _ in ()).throw(AssertionError("ensure_running must not discover a replacement process")),
+    )
+    monkeypatch.setattr(
+        "camfrog.controller.subprocess.Popen",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("ensure_running must not launch Camfrog")),
+    )
+
+    result = controller.ensure_running()
+
+    assert not result.ok
+    assert controller.bound_pid is None
+    assert "Start / Connect" in result.message
+
+
+def test_lost_bound_pid_stays_disconnected_until_explicit_reconnect(monkeypatch):
+    cfg = config()
+    cfg["camfrog"]["executable"] = r"C:\Camfrog\Camfrog Video Chat.exe"
+    controller = CamfrogController(cfg)
+    controller._bound_pid = 777
+    controller._session_state = "connected"
+    monkeypatch.setattr("camfrog.controller.find_process_by_pid", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        controller,
+        "available_client_processes",
+        lambda: (_ for _ in ()).throw(AssertionError("lost PID must not trigger automatic discovery")),
+    )
+
+    result = controller.ensure_running()
+
+    assert not result.ok
+    assert controller.bound_pid is None
+    assert controller._session_state == "lost"
+    assert "PID was lost" in result.message
+
+
+def test_start_or_connect_is_serialized():
+    controller = CamfrogController(config())
+    assert controller._runtime_lock.acquire(blocking=False)
+    try:
+        result = controller.start_or_connect()
+    finally:
+        controller._runtime_lock.release()
+
+    assert not result.ok
+    assert "already in progress" in result.message
