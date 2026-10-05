@@ -1839,6 +1839,10 @@ class AppUI(ctk.CTk):
             if on_complete is not None:
                 on_complete()
             return
+        # Push the (possibly just auto-detected) executable and options into the
+        # controller config before connecting, matching the manual Start / Connect
+        # path; otherwise the controller still sees an empty executable.
+        self._sync_ui_to_config()
         # Launch/bind first, then resume persisted automation only after the
         # connection attempt finishes; never blocks the UI or aborts startup.
         self._begin_start_or_connect(on_complete)
