@@ -449,3 +449,54 @@ def test_rotation_background_styling_uses_config_not_tk_variables():
 
     assert sent == ["<#123ABC>row 1"]
     assert app.state_label.text == "sent"
+
+
+def test_auto_start_resumes_automation_without_launch_when_disabled():
+    resumed = []
+    launched = []
+    app = SimpleNamespace(
+        config_data={"camfrog": {"auto_start": False}},
+        exe_var=FakeVar(r"C:\Camfrog\Camfrog Video Chat.exe"),
+        _begin_start_or_connect=lambda on_complete=None: launched.append(on_complete),
+        after=lambda delay, callback: callback(),
+    )
+
+    AppUI._auto_start_camfrog_if_configured(app, lambda: resumed.append("resume"))
+
+    assert resumed == ["resume"]
+    assert launched == []
+
+
+def test_auto_start_launches_then_defers_automation_resume():
+    resumed = []
+    launched = []
+    app = SimpleNamespace(
+        config_data={"camfrog": {"auto_start": True}},
+        exe_var=FakeVar(r"C:\Camfrog\Camfrog Video Chat.exe"),
+        _begin_start_or_connect=lambda on_complete=None: launched.append(on_complete),
+        after=lambda delay, callback: callback(),
+    )
+
+    AppUI._auto_start_camfrog_if_configured(app, lambda: resumed.append("resume"))
+
+    # Launch was requested first; resume runs only from the connection callback.
+    assert len(launched) == 1
+    assert resumed == []
+    launched[0]()
+    assert resumed == ["resume"]
+
+
+def test_auto_start_without_executable_resumes_without_launch():
+    resumed = []
+    launched = []
+    app = SimpleNamespace(
+        config_data={"camfrog": {"auto_start": True}},
+        exe_var=FakeVar(""),
+        _begin_start_or_connect=lambda on_complete=None: launched.append(on_complete),
+        after=lambda delay, callback: None,
+    )
+
+    AppUI._auto_start_camfrog_if_configured(app, lambda: resumed.append("resume"))
+
+    assert resumed == ["resume"]
+    assert launched == []

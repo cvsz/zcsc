@@ -106,7 +106,7 @@ class AppUI(ctk.CTk):
         self.after(300, self._auto_detect_if_needed)
         self.after(500, self._start_tray)
         self.after(650, self._auto_import_registry_presets)
-        self.after(800, self._resume_background_automation)
+        self.after(800, self._auto_start_camfrog_if_configured, self._resume_background_automation)
         self.after(1000, self._monitor_tray)
 
 
@@ -1815,13 +1815,33 @@ class AppUI(ctk.CTk):
     def _start_or_connect_camfrog(self):
         self._sync_ui_to_config()
         self.state_label.configure(text=self._tr("Starting/connecting Camfrog...", "กำลังเปิด/เชื่อมต่อ Camfrog..."))
-        threading.Thread(target=self._start_or_connect_camfrog_worker, daemon=True).start()
+        self._begin_start_or_connect()
 
-    def _start_or_connect_camfrog_worker(self):
+    def _begin_start_or_connect(self, on_complete=None):
+        threading.Thread(
+            target=self._start_or_connect_camfrog_worker,
+            args=(on_complete,),
+            daemon=True,
+        ).start()
+
+    def _start_or_connect_camfrog_worker(self, on_complete=None):
         result = self.controller.start_or_connect()
         self.after(0, lambda: self._refresh_camfrog_pid(result.message))
         if not result.ok:
             self.after(0, lambda: messagebox.showerror("Camfrog Runtime", result.message))
+        if on_complete is not None:
+            self.after(0, on_complete)
+
+    def _auto_start_camfrog_if_configured(self, on_complete=None):
+        configured = bool(self.config_data.get("camfrog", {}).get("auto_start", False))
+        has_executable = bool(self.exe_var.get().strip())
+        if not configured or not has_executable:
+            if on_complete is not None:
+                on_complete()
+            return
+        # Launch/bind first, then resume persisted automation only after the
+        # connection attempt finishes; never blocks the UI or aborts startup.
+        self._begin_start_or_connect(on_complete)
 
     def _bind_camfrog_pid(self):
         self._sync_ui_to_config()

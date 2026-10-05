@@ -68,7 +68,6 @@ class CamfrogController:
         self._runtime_lock = threading.Lock()
         self._last_send_monotonic = 0.0
         self._bound_pid: int | None = None
-        self._owned_process = None
         self._session_state = "unbound"
 
     def _monotonic(self) -> float:
@@ -114,7 +113,6 @@ class CamfrogController:
         if process is None:
             log.warning("Bound Camfrog PID %s is no longer valid; marking session lost", self._bound_pid)
             self._bound_pid = None
-            self._owned_process = None
             self._session_state = "lost"
         return process
 
@@ -129,7 +127,6 @@ class CamfrogController:
             if process is None:
                 return ChangeResult(False, "Selected PID is not the configured Camfrog executable or is no longer running")
             self._bound_pid = int(process.pid)
-            self._owned_process = None
             self._session_state = "connected"
             return ChangeResult(True, f"Camfrog PID {self._bound_pid} connected")
         finally:
@@ -139,7 +136,6 @@ class CamfrogController:
         with self._runtime_lock:
             previous = self._bound_pid
             self._bound_pid = None
-            self._owned_process = None
             self._session_state = "disconnected"
         return ChangeResult(True, f"Camfrog PID {previous} disconnected" if previous else "Camfrog is disconnected")
 
@@ -229,6 +225,11 @@ class CamfrogController:
                 False,
                 "The bound Camfrog PID was lost. Use Start / Connect or Bind PID to establish a new session.",
             )
+        if self._session_state == "disconnected":
+            return ChangeResult(
+                False,
+                "Camfrog is disconnected. Use Start / Connect or Bind PID to establish a session.",
+            )
         return ChangeResult(
             False,
             "No Camfrog PID is connected. Use Start / Connect or Bind PID before automation.",
@@ -251,7 +252,6 @@ class CamfrogController:
             existing = self.available_client_processes()
             if len(existing) == 1:
                 self._bound_pid = int(existing[0].pid)
-                self._owned_process = None
                 self._session_state = "connected"
                 return ChangeResult(True, f"Connected to existing Camfrog PID {self._bound_pid}")
             if len(existing) > 1:
@@ -268,7 +268,6 @@ class CamfrogController:
             except Exception as exc:
                 return ChangeResult(False, f"Failed to start Camfrog: {exc}")
 
-            self._owned_process = launched
             launched_pid = int(launched.pid)
             for _ in range(40):
                 direct = find_process_by_pid(launched_pid, executable_path=exe)
@@ -290,7 +289,6 @@ class CamfrogController:
                         f"Camfrog started and rebound to child PID {self._bound_pid}",
                     )
                 if len(candidates) > 1:
-                    self._owned_process = None
                     self._session_state = "unbound"
                     return ChangeResult(
                         False,
@@ -298,7 +296,6 @@ class CamfrogController:
                     )
                 time.sleep(0.25)
 
-            self._owned_process = None
             self._session_state = "unbound"
             return ChangeResult(False, "Camfrog did not expose a verifiable client PID within timeout")
         finally:
