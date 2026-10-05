@@ -606,3 +606,26 @@ def test_start_or_connect_is_serialized():
 
     assert not result.ok
     assert "already in progress" in result.message
+
+
+def test_ensure_running_distinguishes_disconnected_from_lost(monkeypatch):
+    controller = CamfrogController(config())
+    monkeypatch.setattr("camfrog.controller.find_process_by_pid", lambda *_args, **_kwargs: None)
+
+    controller._session_state = "disconnected"
+    disconnected = controller.ensure_running()
+    assert not disconnected.ok
+    assert "disconnected" in disconnected.message
+    assert controller._session_state == "disconnected"
+
+    controller._session_state = "connected"
+    controller._bound_pid = 999
+    lost = controller.ensure_running()
+    assert not lost.ok
+    assert "PID was lost" in lost.message
+    assert controller._bound_pid is None
+
+
+def test_controller_does_not_track_a_dead_owned_process_handle():
+    controller = CamfrogController(config())
+    assert not hasattr(controller, "_owned_process")

@@ -11,6 +11,8 @@
 - Verify the bound PID still maps to the configured Camfrog executable before every process lookup.
 - Fail closed when multiple unbound Camfrog processes already exist instead of guessing.
 - Keep status-control ambiguity protections inside the selected PID.
+- Honor the existing "Start Camfrog if not running" setting again: the runtime gateway now launches/binds a PID before resuming persisted background automation instead of failing every rotation tick, and resumes immediately when auto-start is disabled or no executable is configured.
+- Distinguish an explicitly disconnected session from a lost PID in runtime messages, and remove the unused owned-process handle so process ownership is not implied.
 
 
 ### Build — 2.2.5-rc12 release gates

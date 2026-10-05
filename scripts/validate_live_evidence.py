@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate operator-produced RC12 live validation evidence."""
+"""Validate operator-produced RC13 live validation evidence."""
 
 from __future__ import annotations
 
