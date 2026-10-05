@@ -2,7 +2,11 @@
 
 ## Scope
 
-The Windows application workflow and local batch entrypoints use `scripts/build_windows.py` as the single test/build/manifest implementation. It installs `requirements-build.lock` with `--require-hashes`, audits the lock, runs tests and compile checks, builds into isolated staging directories, verifies the manifest against the staged executable, then publishes the EXE and manifest to `dist/`. CI uploads the executable and manifest as a short-lived workflow artifact. The Ubuntu workflow also uploads a JUnit test report. These workflows do not publish a GitHub Release, sign the executable, or establish production readiness.
+The Windows application workflow and local batch entrypoints use `scripts/build_windows.py` as the single test/build/manifest implementation. It installs `requirements-build.lock` with `--require-hashes`, audits the lock, runs tests and compile checks, builds into isolated staging directories, verifies the manifest against the staged executable, then publishes the EXE and manifest to `dist/`. CI uploads the executable and manifest as a short-lived workflow artifact. The Ubuntu workflow also uploads a JUnit test report. The build workflow does not sign the executable or establish production readiness.
+
+## Publishing a release
+
+`.github/workflows/release.yml` publishes a `v*` tag as a **pre-release**. It does not rebuild: it requires a successful `camfrog-status-changer.yml` run for the exact tagged commit, downloads that verified, Defender-scanned artifact, generates a build-provenance attestation, and creates the GitHub Release with the executable plus its manifest and verification/Defender evidence. All actions are pinned to immutable revisions. The release is created unsigned; code signing remains a separate operator step. Do not push a `v*` tag unless the exact commit's required checks are green and the release is intended for distribution.
 
 ## Versioning
 
