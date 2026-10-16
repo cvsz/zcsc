@@ -20,7 +20,6 @@ CLIENT_EXECUTABLE_NAMES = frozenset({
     "camfrog.exe",
     "camfrog video chat.exe",
 })
-CLIENT_EXECUTABLE_STEMS = frozenset({"camfrog", "camfrog video chat"})
 
 
 def _normalized_path(path: str | os.PathLike[str]) -> str:
@@ -40,9 +39,9 @@ def _process_executable(process) -> str:
 
 
 def _is_client_executable_name(name: str) -> bool:
+    """Return True only for exact known Camfrog client executable basenames."""
     basename = ntpath.basename(name).casefold()
-    stem = ntpath.splitext(basename)[0]
-    return basename in CLIENT_EXECUTABLE_NAMES or stem in CLIENT_EXECUTABLE_STEMS
+    return basename in CLIENT_EXECUTABLE_NAMES
 
 
 def find_processes(executable_path: str | os.PathLike[str] | None = None) -> list[psutil.Process]:
@@ -53,8 +52,11 @@ def find_processes(executable_path: str | os.PathLike[str] | None = None) -> lis
     """
     found = []
     expected_path = _normalized_path(executable_path) if executable_path else ""
+    current_pid = os.getpid()
     for p in psutil.process_iter(["pid", "name", "exe"]):
         try:
+            if int(getattr(p, "pid", p.info.get("pid", 0)) or 0) == current_pid:
+                continue
             name = ntpath.basename(str(p.info.get("name") or "")).casefold()
             executable = _process_executable(p)
             if expected_path:
@@ -75,7 +77,10 @@ def find_process_by_pid(
 ) -> psutil.Process | None:
     """Return one verified Camfrog client process for an exact PID."""
     try:
-        process = psutil.Process(int(pid))
+        requested_pid = int(pid)
+        if requested_pid == os.getpid():
+            return None
+        process = psutil.Process(requested_pid)
         executable = _process_executable(process)
         expected_path = _normalized_path(executable_path) if executable_path else ""
         if expected_path:
