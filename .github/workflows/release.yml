@@ -50,7 +50,6 @@ jobs:
           run_id=$(gh run list \
             --repo "$GITHUB_REPOSITORY" \
             --workflow "camfrog-status-changer.yml" \
-            --branch "$GITHUB_REF_NAME" \
             --commit "$GITHUB_SHA" \
             --status success \
             --limit 1 \
@@ -70,7 +69,6 @@ jobs:
           run_id=$(gh run list \
             --repo "$GITHUB_REPOSITORY" \
             --workflow "camfrog-status-changer.yml" \
-            --branch "$GITHUB_REF_NAME" \
             --commit "$GITHUB_SHA" \
             --status success \
             --limit 1 \
