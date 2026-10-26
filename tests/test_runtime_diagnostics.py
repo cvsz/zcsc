@@ -28,7 +28,8 @@ class Process:
         return self.info["exe"]
 
 
-def test_diagnostics_never_accepts_cef_even_when_configured_path_matches():
+def test_diagnostics_never_accepts_cef_even_when_configured_path_matches(monkeypatch):
+    monkeypatch.setattr("scripts.diagnose_camfrog_runtime.os.getpid", lambda: 9000)
     configured = r"C:\Users\TestUser\AppData\Local\Camfrog\camfrog_cef.exe"
     row = classify_process(
         Process(1440, "camfrog_cef.exe", configured),
