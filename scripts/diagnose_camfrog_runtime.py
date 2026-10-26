@@ -6,12 +6,48 @@ from __future__ import annotations
 import json
 import ntpath
 import os
+import re
+import sys
 from pathlib import Path
 
 import psutil
 
-from camfrog.detector import CLIENT_EXECUTABLE_NAMES, _normalized_path, _process_executable
-from system.config_store import ConfigStore
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from camfrog.detector import CLIENT_EXECUTABLE_NAMES, _normalized_path, _process_executable  # noqa: E402
+from system.config_store import ConfigStore  # noqa: E402
+
+
+def read_config_path(path: Path) -> tuple[str, str]:
+    """Read only the configured executable; never create, migrate, or repair config."""
+    try:
+        config = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return "missing", ""
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return "invalid", ""
+
+    if not isinstance(config, dict):
+        return "invalid", ""
+    camfrog = config.get("camfrog", {})
+    if not isinstance(camfrog, dict):
+        return "invalid", ""
+    configured = camfrog.get("executable", "")
+    if not isinstance(configured, str):
+        return "invalid", ""
+    configured = configured.strip()
+    return ("configured" if configured else "missing_executable"), configured
+
+
+def redact_user_profile(path: str) -> str:
+    """Redact per-user path components before diagnostic output is shared."""
+    return re.sub(
+        r"(?i)([\\/](?:Users|home|Documents and Settings)[\\/])[^\\/]+",
+        lambda match: f"{match.group(1)}<USER>",
+        path,
+    )
 
 
 def classify_process(process, configured_path: str) -> dict[str, object] | None:
@@ -33,18 +69,6 @@ def classify_process(process, configured_path: str) -> dict[str, object] | None:
         role = "zcsc-current-process"
         eligible = False
         reason = "current ZCSC process is never a Camfrog target"
-    elif configured_match:
-        role = "camfrog-client"
-        eligible = True
-        reason = "exact configured Camfrog executable path"
-    elif basename in CLIENT_EXECUTABLE_NAMES:
-        role = "camfrog-client"
-        eligible = not configured_path
-        reason = (
-            "known exact Camfrog client executable name"
-            if not configured_path
-            else "known client name but path differs from configured executable"
-        )
     elif basename == "camfrog_cef.exe":
         role = "camfrog-cef-helper"
         eligible = False
@@ -53,6 +77,18 @@ def classify_process(process, configured_path: str) -> dict[str, object] | None:
         role = "zcsc"
         eligible = False
         reason = "ZCSC executable is never a Camfrog target"
+    elif basename in CLIENT_EXECUTABLE_NAMES:
+        role = "camfrog-client"
+        if configured_path and not configured_match:
+            eligible = False
+            reason = "known client name but path differs from configured executable"
+        else:
+            eligible = True
+            reason = (
+                "exact configured Camfrog executable path"
+                if configured_match
+                else "known exact Camfrog client executable name"
+            )
     elif basename.startswith("camfrog"):
         role = "camfrog-related-other"
         eligible = False
@@ -71,8 +107,7 @@ def classify_process(process, configured_path: str) -> dict[str, object] | None:
 
 def main() -> int:
     store = ConfigStore()
-    config = store.load()
-    configured_path = str(config.get("camfrog", {}).get("executable", "") or "").strip()
+    config_status, configured_path = read_config_path(store.path)
 
     rows = []
     for process in psutil.process_iter(["pid", "name", "exe"]):
@@ -82,7 +117,8 @@ def main() -> int:
     rows.sort(key=lambda item: (not bool(item["eligible"]), str(item["role"]), int(item["pid"])))
 
     output = {
-        "configured_executable": configured_path,
+        "config_status": config_status,
+        "configured_executable": redact_user_profile(configured_path),
         "eligible_pids": [row["pid"] for row in rows if row["eligible"]],
         "processes": rows,
     }
