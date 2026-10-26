@@ -59,11 +59,13 @@ def find_processes(executable_path: str | os.PathLike[str] | None = None) -> lis
                 continue
             name = ntpath.basename(str(p.info.get("name") or "")).casefold()
             executable = _process_executable(p)
+            identity = ntpath.basename(executable) if executable else name
+            if not _is_client_executable_name(identity):
+                continue
             if expected_path:
                 matches = bool(executable) and _normalized_path(executable) == expected_path
             else:
-                identity = ntpath.basename(executable) if executable else name
-                matches = _is_client_executable_name(identity)
+                matches = True
             if matches:
                 found.append(p)
         except (psutil.NoSuchProcess, psutil.AccessDenied, OSError, TypeError, ValueError):
@@ -82,14 +84,14 @@ def find_process_by_pid(
             return None
         process = psutil.Process(requested_pid)
         executable = _process_executable(process)
+        identity = executable or process.name()
+        if not _is_client_executable_name(identity):
+            return None
         expected_path = _normalized_path(executable_path) if executable_path else ""
-        if expected_path:
-            if not executable or _normalized_path(executable) != expected_path:
-                return None
-        else:
-            identity = executable or process.name()
-            if not _is_client_executable_name(identity):
-                return None
+        if expected_path and (
+            not executable or _normalized_path(executable) != expected_path
+        ):
+            return None
         if not process.is_running():
             return None
         return process
