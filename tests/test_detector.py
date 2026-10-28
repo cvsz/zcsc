@@ -57,6 +57,36 @@ def test_configured_executable_requires_exact_normalized_path(monkeypatch):
     assert [process.pid for process in found] == [1]
 
 
+def test_configured_path_never_overrides_client_executable_allowlist(monkeypatch):
+    class Process:
+        def __init__(self, pid, name, executable):
+            self.pid = pid
+            self.info = {"pid": pid, "name": name, "exe": executable}
+
+        def is_running(self):
+            return True
+
+        def exe(self):
+            return self.info["exe"]
+
+        def name(self):
+            return self.info["name"]
+
+    helper = Process(21, "camfrog_cef.exe", r"C:\Camfrog\camfrog_cef.exe")
+    non_exe = Process(22, "Camfrog Video Chat.com", r"C:\Camfrog\Camfrog Video Chat.com")
+    monkeypatch.setattr(detector.os, "getpid", lambda: 999)
+    monkeypatch.setattr(detector.psutil, "process_iter", lambda _attrs: [helper, non_exe])
+    monkeypatch.setattr(
+        detector.psutil,
+        "Process",
+        lambda pid: helper if pid == 21 else non_exe,
+    )
+
+    assert detector.find_processes(r"C:\Camfrog\camfrog_cef.exe") == []
+    assert detector.find_process_by_pid(21, r"C:\Camfrog\camfrog_cef.exe") is None
+    assert detector.find_process_by_pid(22, r"C:\Camfrog\Camfrog Video Chat.com") is None
+
+
 def test_discover_does_not_guess_between_multiple_running_client_binaries(monkeypatch, tmp_path):
     class Process:
         def __init__(self, executable):
@@ -98,3 +128,49 @@ def test_find_process_by_pid_requires_exact_executable(monkeypatch):
 
     assert detector.find_process_by_pid(77, r"c:/camfrog/Camfrog Video Chat.exe") is selected
     assert detector.find_process_by_pid(77, r"D:/Other/Camfrog Video Chat.exe") is None
+
+
+
+def test_process_scan_rejects_non_exe_same_stem_and_cef(monkeypatch):
+    class Process:
+        def __init__(self, pid, name, executable):
+            self.pid = pid
+            self.info = {"pid": pid, "name": name, "exe": executable}
+
+    processes = [
+        Process(10, "Camfrog Video Chat.com", r"C:\fake\Camfrog Video Chat.com"),
+        Process(11, "Camfrog.com", r"C:\fake\Camfrog.com"),
+        Process(12, "camfrog_cef.exe", r"C:\Camfrog\camfrog_cef.exe"),
+        Process(13, "Camfrog Video Chat.exe", r"C:\Camfrog\Camfrog Video Chat.exe"),
+    ]
+    monkeypatch.setattr(detector.os, "getpid", lambda: 999)
+    monkeypatch.setattr(detector.psutil, "process_iter", lambda _attrs: processes)
+
+    assert [process.pid for process in detector.find_processes()] == [13]
+
+
+def test_process_scan_explicitly_excludes_current_pid(monkeypatch):
+    class Process:
+        def __init__(self, pid):
+            self.pid = pid
+            self.info = {
+                "pid": pid,
+                "name": "Camfrog Video Chat.exe",
+                "exe": r"C:\Camfrog\Camfrog Video Chat.exe",
+            }
+
+    monkeypatch.setattr(detector.os, "getpid", lambda: 77)
+    monkeypatch.setattr(detector.psutil, "process_iter", lambda _attrs: [Process(77), Process(88)])
+
+    assert [process.pid for process in detector.find_processes()] == [88]
+
+
+def test_find_process_by_pid_rejects_current_process(monkeypatch):
+    monkeypatch.setattr(detector.os, "getpid", lambda: 77)
+    monkeypatch.setattr(
+        detector.psutil,
+        "Process",
+        lambda _pid: (_ for _ in ()).throw(AssertionError("current process must be rejected before psutil lookup")),
+    )
+
+    assert detector.find_process_by_pid(77, r"C:\Camfrog\Camfrog Video Chat.exe") is None
