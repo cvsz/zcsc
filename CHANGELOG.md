@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Released — 2.2.5-rc13 pre-release
+
+- Published as an unsigned GitHub pre-release `v2.2.5-rc13` at commit `abeb8e5`: Defender-scanned Windows x64 artifact (`CamfrogStatusChanger.exe`, SHA-256 `c1b88c299314717720b6d40fe11f3090138a4e988d22f0079e7f5e11b38fd038`) plus manifest and verification/Defender evidence. Not production-ready: code signing, the ten live gates, and an organizational malware scan remain open.
+
 ### Runtime — 2.2.5-rc13 PID-owned Camfrog session
 
 - Bind automation to exactly one verified Camfrog PID at a time.

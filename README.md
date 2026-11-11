@@ -1,6 +1,6 @@
 # ZeaZDev-CamfrogStatusChanger
 
-Camfrog Status Changer is a Windows desktop companion for managing custom-status text and optional automation through Camfrog's visible UI. The source version is `2.2.5-rc13`; this version label does not certify a packaged, signed, or server-verified release. See [production readiness](PRODUCTION-READINESS.md) for the remaining Windows and Camfrog checks.
+Camfrog Status Changer is a Windows desktop companion for managing custom-status text and optional automation through Camfrog's visible UI. The source version is `2.2.5-rc13`; this version label does not certify a packaged, signed, or server-verified release. The RC13 source candidate is published as an unsigned pre-release (`v2.2.5-rc13`, exact commit `abeb8e5`, Defender-scanned but not launched against Camfrog); see [production readiness](PRODUCTION-READINESS.md) for the remaining Windows and Camfrog checks.
 
 ## Features
 
